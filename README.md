@@ -22,9 +22,6 @@ Today’s search and embedding models cannot handle such phrases or sentences.
 - **Serving:** Quantized to GGUF → Cloudflare Workers AI  
 - **Target:** Beat **SigLIP and CLIP** by +8 R@1 on Recipe1M+  
 - **New Data:** 20k **Indian-flavour triplets** (ignored by academia & industry so far)
-
----
-
 ## What You Will Learn
 - Hands-on **MLOps** (Modal)  
 - **Serverless edge deployment** (Cloudflare)  
@@ -36,16 +33,12 @@ Today’s search and embedding models cannot handle such phrases or sentences.
 ## If Everything Goes Right
 - Potential to convert into a **top-tier ACL/EMNLP workshop paper**
 
----
 
 ## Supervision
 - **Weekly meetings** with the student  
 - Rubric as road-map: **5 hard checkpoints over the semester**  
 - Examiner column included for faculty audit  
 - **Grade scale: 10 points**
-
----
-
 ## Checkpoints & Grading Rubric
 
 | Score | Week | Deliverables | Examiner Verification | Comments / Risk Flags |
@@ -58,8 +51,6 @@ Today’s search and embedding models cannot handle such phrases or sentences.
 | **5 / 10 – Borderline** | Wk 3: Proposal & sandbox | Charter, timeline, risk register, cost sheet, hello-world Modal job | PDFs + job screenshot | Acceptable only if severe blockers documented |
 | **4 / 10 – Bare Minimum** | < Wk 3 | Repo exists, some code committed, no runnable pipeline/data/charter | Faculty checks repo | Passable, but hurts recommendation letters |
 
----
-
 ## Weighting for Final Transcript  
 (Agreed with **Prof. Dhruv**)  
 
@@ -69,6 +60,3 @@ Today’s search and embedding models cannot handle such phrases or sentences.
 | **Technical depth & code quality** | 15% | Code review rubric: modularity, tests, CI, lint, comments |
 | **Documentation & replication kit** | 10% | Can an external TA reproduce in < 2h? |
 | **Professionalism** | 5% | Weekly demos, logbook, budget tracking (−1 per missed demo, capped −3) |
-
----
-
