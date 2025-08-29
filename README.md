@@ -1,13 +1,12 @@
 # Masala Embed
 Serverless Multimodal Food Retrieval for Mood, Weather &amp; Region
-
-Here’s a clean, structured **Markdown version** of your Google Doc:
-
-```markdown
-# Masala Edge
-**Serverless Multimodal Food Retrieval for Mood, Weather & Region**
-
 ---
+
+## Splits (Roles & Leads)
+- **Inference Lead (Cost):** Vedant  
+- **Infra Lead (Scalability & Latency/Throughput):** Arnav Bharti  
+- **Data Lead:** Vinayak  
+- **Training Lead (R@1, R@5):** Sahitya Singh  
 
 ## Use Case
 Imagine asking:  
@@ -73,9 +72,3 @@ Today’s search and embedding models cannot handle such phrases or sentences.
 
 ---
 
-## Splits (Roles & Leads)
-- **Inference Lead (Cost):** Vedant  
-- **Infra Lead (Scalability & Latency/Throughput):** Arnav Bharti  
-- **Data Lead:** Vinayak  
-- **Training Lead (R@1, R@5):** Sahitya Singh  
-```
