@@ -79,5 +79,3 @@ Today’s search and embedding models cannot handle such phrases or sentences.
 - **Data Lead:** Vinayak  
 - **Training Lead (R@1, R@5):** Sahitya Singh  
 ```
-
-Would you like me to also **optimize this for a GitHub README style** (with badges, checklist formatting, and collapsible sections), so it’s immediately publishable?
