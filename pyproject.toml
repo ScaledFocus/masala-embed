@@ -10,3 +10,15 @@ dependencies = [
     "pre-commit>=4.3.0",
     "ruff>=0.12.11",
 ]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
