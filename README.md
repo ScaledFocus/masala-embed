@@ -8,6 +8,8 @@ Serverless Multimodal Food Retrieval for Mood, Weather &amp; Region
 - **Data Lead:** Vinayak  
 - **Training Lead (R@1, R@5):** Sahitya Singh  
 
+- **Mentor:**  [Nirant Kasliwal](https://www.linkedin.com/in/nirant/)
+- **Advisor:** [Dhruv Anand](https://www.linkedin.com/in/dhruv-anand-ainorthstartech/)
 ## Use Case
 Imagine asking:  
 > “Need a cheesy, rainy-day dosa”  
