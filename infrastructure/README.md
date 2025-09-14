@@ -16,3 +16,118 @@ set +a
 4. Run `run_terraform.sh1
 
 This will setup R2 bucket to store models.
+
+# API Usage
+
+The Masala Embed API provides 4 endpoints for health checking and generating embeddings using different models.
+
+## Base URL
+
+```
+https://your-worker-domain.workers.dev
+```
+
+## Endpoints
+
+### Health Check
+
+Check if all embedding services are healthy.
+
+```bash
+GET /health
+```
+
+**Response:**
+
+```json
+{
+  "siglip": true,
+  "colqwen": true,
+  "qwen": false
+}
+```
+
+### Generate Embeddings
+
+All embedding endpoints accept the same request format and return embeddings in a consistent format.
+
+#### SigLIP Embeddings
+
+```bash
+POST /embedding/siglip
+```
+
+#### ColQwen Embeddings
+
+```bash
+POST /embedding/colqwen
+```
+
+#### Qwen Embeddings
+
+```bash
+POST /embedding/qwen
+```
+
+**Request Format:**
+
+```json
+{
+  "text": "Your text to embed (optional)",
+  "image_url": "https://example.com/image.jpg (optional)"
+}
+```
+
+**Response Format:**
+
+```json
+{
+  "embedding": [0.1, 0.2, 0.3, ...],
+  "model": "siglip"
+}
+```
+
+## Examples
+
+### Text Embedding
+
+```bash
+curl -X POST https://your-worker-domain.workers.dev/embedding/siglip \
+  -H "Content-Type: application/json" \
+  -d '{"text": "A beautiful sunset over the mountains"}'
+```
+
+### Image Embedding
+
+```bash
+curl -X POST https://your-worker-domain.workers.dev/embedding/colqwen \
+  -H "Content-Type: application/json" \
+  -d '{"image_url": "https://example.com/sunset.jpg"}'
+```
+
+### Combined Text and Image
+
+```bash
+curl -X POST https://your-worker-domain.workers.dev/embedding/qwen \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "A beautiful sunset",
+    "image_url": "https://example.com/sunset.jpg"
+  }'
+```
+
+### Health Check
+
+```bash
+curl https://your-worker-domain.workers.dev/health
+```
+
+## Error Responses
+
+If a request fails, you'll receive an error response:
+
+```json
+{
+  "error": "Request failed"
+}
+```
