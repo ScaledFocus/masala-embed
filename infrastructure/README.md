@@ -1,5 +1,13 @@
 # Setup Instructions
 
+## Loading environment variables
+
+```
+set -a
+source .env
+set +a
+```
+
 ## Cloudflare
 
 1. `CLOUDFLARE_ACCOUNT_ID` environment variable required.
