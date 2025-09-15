@@ -72,6 +72,7 @@ class UnifiedModel:
         #     "max_length": MAX_LENGTH,
         #     "embedding_dim": EMBEDDING_DIM
         # }
+        # TODO: Fix this hardcoded values.
         MODEL_NAME="qwen"
         MODEL_TYPE="text_embedding"
         MODEL_SOURCE="r2"

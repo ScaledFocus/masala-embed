@@ -68,6 +68,9 @@ cp infrastructure/.env.colqwen infrastructure/.env
 cp infrastructure/.env.siglip infrastructure/.env
 ```
 
+NOTE: Right now there are hardcoded values in load config function. Will need to input values manually from .env.
+Reason: Local .env is not available to Modal runtime.
+
 Deploy the model:
 
 ```bash
