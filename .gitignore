@@ -207,3 +207,11 @@ marimo/_lsp/
 __marimo__/
 
 **/node_modules/
+
+**/*.tfstate
+**/*.tfstate.*
+**/*.tfvars
+**/*.tfvars.json
+**/plan.out
+**/.terraform/
+**/.terraform.lock.hcl

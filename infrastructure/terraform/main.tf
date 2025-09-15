@@ -7,13 +7,13 @@ terraform {
   }
 }
 
-variable "cloudflare_api_token" {
+variable "cloudflare_api_key" {
   type      = string
   sensitive = true
 }
 
 provider "cloudflare" {
-  api_token = var.cloudflare_api_token
+  api_token = var.cloudflare_api_key
 }
 
 variable "bucket_name" {
