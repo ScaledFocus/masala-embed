@@ -2,10 +2,6 @@
 
 set -e
 
-set -a
-source .env
-set +a
-
 echo "Checking if required environment variables are set."
 if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
     echo "Error: CLOUDFLARE_ACCOUNT_ID not set"

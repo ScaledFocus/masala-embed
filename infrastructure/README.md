@@ -27,8 +27,6 @@ This will setup R2 bucket to store models.
    modal setup
    ```
 
-   You would need to add these environment variables to your Modal secrets:
-
 2. **Environment Variables**: Set the following in your `.env` file:
    ```bash
    CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
@@ -39,8 +37,6 @@ This will setup R2 bucket to store models.
 
 ### Usage
 
-#### Usage
-
 ```bash
 # Set required parameters
 export MODEL_NAME="Qwen/Qwen2.5-0.5B"
@@ -50,59 +46,57 @@ export QUANTIZATION_TYPE="Q4_0"
 ./infrastructure/run_quantize.sh
 ```
 
+## Model Inference Deployment
+
+### Prerequisites
+
+Same as quantization section above.
+
+### Usage
+
+Copy one of the example configurations and modify as needed:
+
+```bash
+# For Qwen (R2 model)
+cp infrastructure/.env.qwen infrastructure/.env
+# Edit .env with your actual credentials
+
+# For ColQwen (HuggingFace model)
+cp infrastructure/.env.colqwen infrastructure/.env
+
+# For SigLIP (HuggingFace model)
+cp infrastructure/.env.siglip infrastructure/.env
+```
+
+Deploy the model:
+
+```bash
+./infrastructure/run_inference.sh
+```
+
+### Configuration Files
+
+- `.env.qwen` - Text embedding model from R2 (quantized)
+- `.env.colqwen` - Multimodal model from HuggingFace
+- `.env.siglip` - Multimodal model from HuggingFace
+
 # API Usage
-
-The Masala Embed API provides 4 endpoints for health checking and generating embeddings using different models.
-
-## Base URL
-
-```
-https://your-worker-domain.workers.dev
-```
 
 ## Endpoints
 
 ### Health Check
 
-Check if all embedding services are healthy.
-
 ```bash
 GET /health
 ```
 
-**Response:**
-
-```json
-{
-  "siglip": true,
-  "colqwen": true,
-  "qwen": false
-}
-```
-
 ### Generate Embeddings
 
-All embedding endpoints accept the same request format and return embeddings in a consistent format.
-
-#### SigLIP Embeddings
-
 ```bash
-POST /embedding/siglip
+POST /embed
 ```
 
-#### ColQwen Embeddings
-
-```bash
-POST /embedding/colqwen
-```
-
-#### Qwen Embeddings
-
-```bash
-POST /embedding/qwen
-```
-
-**Request Format:**
+**Request:**
 
 ```json
 {
@@ -111,56 +105,25 @@ POST /embedding/qwen
 }
 ```
 
-**Response Format:**
+**Response:**
 
 ```json
 {
   "embedding": [0.1, 0.2, 0.3, ...],
-  "model": "siglip"
+  "model": "model_name"
 }
 ```
 
 ## Examples
 
-### Text Embedding
-
 ```bash
-curl -X POST https://your-worker-domain.workers.dev/embedding/siglip \
+# Text embedding
+curl -X POST https://your-modal-endpoint/embed \
   -H "Content-Type: application/json" \
-  -d '{"text": "A beautiful sunset over the mountains"}'
-```
+  -d '{"text": "A beautiful sunset"}'
 
-### Image Embedding
-
-```bash
-curl -X POST https://your-worker-domain.workers.dev/embedding/colqwen \
+# Image embedding
+curl -X POST https://your-modal-endpoint/embed \
   -H "Content-Type: application/json" \
-  -d '{"image_url": "https://example.com/sunset.jpg"}'
-```
-
-### Combined Text and Image
-
-```bash
-curl -X POST https://your-worker-domain.workers.dev/embedding/qwen \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "A beautiful sunset",
-    "image_url": "https://example.com/sunset.jpg"
-  }'
-```
-
-### Health Check
-
-```bash
-curl https://your-worker-domain.workers.dev/health
-```
-
-## Error Responses
-
-If a request fails, you'll receive an error response:
-
-```json
-{
-  "error": "Request failed"
-}
+  -d '{"image_url": "https://example.com/image.jpg"}'
 ```

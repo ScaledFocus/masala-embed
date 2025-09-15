@@ -2,10 +2,6 @@
 
 set -e
 
-set -a
-source .env
-set +a
-
 echo "Checking if required environment variables are set."
 
 # Check for Cloudflare R2 credentials

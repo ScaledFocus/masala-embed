@@ -5,5 +5,8 @@ requires-python = ">=3.12"
 dependencies = [
     "boto3>=1.40.30",
     "huggingface-hub>=0.34.4",
+    "llama-cpp-python>=0.3.16",
     "modal>=1.1.4",
+    "sentence-transformers>=5.1.0",
+    "transformers>=4.56.1",
 ]
