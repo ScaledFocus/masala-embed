@@ -24,7 +24,6 @@ image = (
         "transformers>=4.45.0",
         "torch>=2.1.0",
         "safetensors",
-        "mistral_common"
     ])
     .run_commands([
         # Clone and build llama.cpp using CMake
@@ -35,11 +34,10 @@ image = (
         # Install Python bindings
         "cd /tmp/llama.cpp && pip install -e .",
         # Make binaries available globally
-        "ls -l /tmp/llama.cpp", # Diagnostic: list files after build
-        "cp /tmp/llama.cpp/convert_hf_to_gguf.py /usr/local/bin/",
-        "cp /tmp/llama.cpp/build/bin/llama-quantize /usr/local/bin/",
-        "chmod +x /usr/local/bin/convert_hf_to_gguf.py",
-        "chmod +x /usr/local/bin/llama-quantize",
+    "cp /tmp/llama.cpp/convert-hf-to-gguf.py /usr/local/bin/",
+    "cp /tmp/llama.cpp/build/bin/llama-quantize /usr/local/bin/",
+    "chmod +x /usr/local/bin/convert-hf-to-gguf.py",
+    "chmod +x /usr/local/bin/llama-quantize",
     ])
 )
 
@@ -176,7 +174,7 @@ def quantize_model(
     # Convert to GGUF format with specified precision
     gguf_path = f"{work_dir}/model-{precision}.gguf"
     convert_cmd = [
-        "python3", "/usr/local/bin/convert_hf_to_gguf.py",
+        "python3", "/usr/local/bin/convert-hf-to-gguf.py",
         model_path,
         "--outtype", precision,
         "--outfile", gguf_path

@@ -7,23 +7,23 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Configuration from environment
-MODEL_NAME = os.environ.get("MODEL_NAME", "default")
-MODEL_TYPE = os.environ.get("MODEL_TYPE", "text_embedding")
-MODEL_SOURCE = os.environ.get("MODEL_SOURCE", "huggingface")
+# # Configuration from environment
+MODEL_NAME= os.environ.get("MODEL_NAME")
+# MODEL_TYPE = os.environ.get("MODEL_TYPE")
+# MODEL_SOURCE = os.environ.get("MODEL_SOURCE")
 CPU_COUNT = int(os.environ.get("CPU_COUNT", "4"))
 MEMORY_MB = int(os.environ.get("MEMORY_MB", "8192"))
 GPU_TYPE = os.environ.get("GPU_TYPE")
-MAX_LENGTH = int(os.environ.get("MAX_LENGTH", "512"))
-EMBEDDING_DIM = int(os.environ.get("EMBEDDING_DIM", "1536"))
+# MAX_LENGTH = int(os.environ.get("MAX_LENGTH", "512"))
+# EMBEDDING_DIM = int(os.environ.get("EMBEDDING_DIM", "1536"))
 
-# R2 specific config
-R2_MODEL_FILE = os.environ.get("R2_MODEL_FILE")
-R2_FRAMEWORK = os.environ.get("R2_FRAMEWORK", "llama_cpp")
+# # R2 specific config
+# R2_MODEL_FILE = os.environ.get("R2_MODEL_FILE")
+# R2_FRAMEWORK = os.environ.get("R2_FRAMEWORK", "llama_cpp")
 
-# HuggingFace specific config
-HF_MODEL_ID = os.environ.get("HF_MODEL_ID")
-HF_FRAMEWORK = os.environ.get("HF_FRAMEWORK", "transformers")
+# # HuggingFace specific config
+# HF_MODEL_ID = os.environ.get("HF_MODEL_ID")
+# HF_FRAMEWORK = os.environ.get("HF_FRAMEWORK", "transformers")
 
 app = modal.App(f"serve-{MODEL_NAME}")
 
@@ -43,24 +43,16 @@ image = (
     )
 )
 
-# Build decorator kwargs to handle optional parameters
-cls_kwargs = {
-    "image": image,
-    "cpu": CPU_COUNT,
-    "memory": MEMORY_MB,
-    "min_containers": 1,
-    "timeout": 300
-}
+@app.cls(
+    image=image,
+    cpu=CPU_COUNT,
+    memory=MEMORY_MB,
+    min_containers=1,
+    timeout=300,
+    gpu=GPU_TYPE,
+    secrets=[modal.Secret.from_name("cloudflare-r2")],
 
-# Add secrets for R2 models only
-if MODEL_SOURCE == "r2":
-    cls_kwargs["secrets"] = [modal.Secret.from_name("cloudflare-r2")]
-
-# Add GPU if specified
-if GPU_TYPE:
-    cls_kwargs["gpu"] = GPU_TYPE
-
-@app.cls(**cls_kwargs)
+)
 class UnifiedModel:
     model: Optional[Any] = None
     processor: Optional[Any] = None
@@ -69,6 +61,28 @@ class UnifiedModel:
 
     def _load_config(self) -> Dict[str, Any]:
         """Load model configuration from environment."""
+        # return {
+        #     "model_name": MODEL_NAME,
+        #     "model_type": MODEL_TYPE,
+        #     "model_source": MODEL_SOURCE,
+        #     "r2_file": R2_MODEL_FILE,
+        #     "r2_framework": R2_FRAMEWORK,
+        #     "hf_model_id": HF_MODEL_ID,
+        #     "hf_framework": HF_FRAMEWORK,
+        #     "max_length": MAX_LENGTH,
+        #     "embedding_dim": EMBEDDING_DIM
+        # }
+        MODEL_NAME="qwen"
+        MODEL_TYPE="text_embedding"
+        MODEL_SOURCE="r2"
+        R2_MODEL_FILE="qwen-qwen2.5-0.5b-q4_0.gguf"
+        R2_FRAMEWORK="llama_cpp"
+        MAX_LENGTH=512
+        EMBEDDING_DIM=1536
+        # HF_MODEL_ID=google/siglip-base-patch16-224
+        # HF_FRAMEWORK=transformers
+        HF_MODEL_ID=None
+        HF_FRAMEWORK=None
         return {
             "model_name": MODEL_NAME,
             "model_type": MODEL_TYPE,
@@ -85,9 +99,9 @@ class UnifiedModel:
     def load_model(self):
         """Load model based on configuration."""
         self.model_config = self._load_config()
-        logger.info(f"Loading model: {MODEL_NAME}")
-        logger.info(f"Model type: {MODEL_TYPE}")
-        logger.info(f"Model source: {MODEL_SOURCE}")
+        logger.info(f"Loading model: {self.model_config['model_name']}")
+        logger.info(f"Model type: {self.model_config['model_type']}")
+        logger.info(f"Model source: {self.model_config['model_source']}")
 
         try:
             if self.model_config["model_source"] == "r2":
@@ -408,17 +422,20 @@ class UnifiedModel:
 # Initialize model instance
 unified_model = UnifiedModel()
 
-@app.function(image=image)
+web_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(["fastapi"])
+)
+
+@app.function(image=web_image)
 @modal.fastapi_endpoint(method="POST")
 def embed(data: Dict[str, Any]) -> Dict[str, Any]:
-    """FastAPI endpoint for embeddings."""
     return unified_model.embed.remote(
         text=data.get("text"),
         image_url=data.get("image_url")
     )
 
-@app.function(image=image)
+@app.function(image=web_image)
 @modal.fastapi_endpoint(method="GET")
 def health() -> Dict[str, str]:
-    """Health check endpoint."""
-    return {"status": "healthy", "model": MODEL_NAME}
+    return {}
