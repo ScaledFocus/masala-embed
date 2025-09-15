@@ -39,6 +39,7 @@ image = (
             "pillow",
             "requests",
             "fastapi",  # required for web endpoints
+            "sentencepiece"
         ]
     )
 )
@@ -73,17 +74,19 @@ class UnifiedModel:
         #     "embedding_dim": EMBEDDING_DIM
         # }
         # TODO: Fix this hardcoded values.
-        MODEL_NAME="qwen"
-        MODEL_TYPE="text_embedding"
-        MODEL_SOURCE="r2"
-        R2_MODEL_FILE="qwen-qwen2.5-0.5b-q4_0.gguf"
-        R2_FRAMEWORK="llama_cpp"
-        MAX_LENGTH=512
+        MODEL_NAME="siglip"
+        MODEL_TYPE="multimodal"
+        MODEL_SOURCE="huggingface"
+        # R2_MODEL_FILE="qwen-qwen2.5-0.5b-q4_0.gguf"
+        # R2_FRAMEWORK="llama_cpp"
+        R2_MODEL_FILE=None,
+        R2_FRAMEWORK=None
+        MAX_LENGTH=77
         EMBEDDING_DIM=1536
-        # HF_MODEL_ID=google/siglip-base-patch16-224
-        # HF_FRAMEWORK=transformers
-        HF_MODEL_ID=None
-        HF_FRAMEWORK=None
+        HF_MODEL_ID="google/siglip-base-patch16-224"
+        HF_FRAMEWORK="transformers"
+        # HF_MODEL_ID=None
+        # HF_FRAMEWORK=None
         return {
             "model_name": MODEL_NAME,
             "model_type": MODEL_TYPE,
