@@ -1,3 +1,4 @@
-INSERT INTO labeler (name, role) VALUES
-    ('Luv', 'labeler'),
-    ('Nirant', 'labeler');
+INSERT INTO labeler (name, role, type) VALUES
+    ('Luv', 'labeler', 'human'),
+    ('Nirant', 'labeler', 'human'),
+    ('Synthetic Generator', 'labeler', 'ai');
