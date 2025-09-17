@@ -9,7 +9,8 @@ __pycache__/
 data/
 # C extensions
 *.so
-
+context/
+context/*
 # Distribution / packaging
 .Python
 build/
