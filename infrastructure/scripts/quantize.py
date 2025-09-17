@@ -5,52 +5,57 @@ import logging
 from typing import Optional
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 app = modal.App("quantize")
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install([
-        "git",
-        "build-essential",
-        "cmake",
-        "python3-dev",
-    ])
-    .pip_install([
-        "huggingface_hub>=0.20.0",
-        "boto3>=1.34.0",
-        "transformers>=4.45.0",
-        "torch>=2.1.0",
-        "safetensors",
-    ])
-    .run_commands([
-        # Clone and build llama.cpp using CMake
-        "cd /tmp && git clone https://github.com/ggerganov/llama.cpp.git",
-        "cd /tmp/llama.cpp && mkdir build && cd build",
-        "cd /tmp/llama.cpp/build && cmake .. -DGGML_NATIVE=OFF -DLLAMA_CURL=OFF",
-        "cd /tmp/llama.cpp/build && make -j$(nproc)",
-        # Install Python bindings
-        "cd /tmp/llama.cpp && pip install -e .",
-        # Make binaries available globally
-    "cp /tmp/llama.cpp/convert-hf-to-gguf.py /usr/local/bin/",
-    "cp /tmp/llama.cpp/build/bin/llama-quantize /usr/local/bin/",
-    "chmod +x /usr/local/bin/convert-hf-to-gguf.py",
-    "chmod +x /usr/local/bin/llama-quantize",
-    ])
+    .apt_install(
+        [
+            "git",
+            "build-essential",
+            "cmake",
+            "python3-dev",
+        ]
+    )
+    .pip_install(
+        [
+            "huggingface_hub>=0.20.0",
+            "boto3>=1.34.0",
+            "transformers>=4.45.0",
+            "torch>=2.1.0",
+            "safetensors",
+        ]
+    )
+    .run_commands(
+        [
+            # Clone and build llama.cpp using CMake
+            "cd /tmp && git clone https://github.com/ggerganov/llama.cpp.git",
+            "cd /tmp/llama.cpp && mkdir build && cd build",
+            "cd /tmp/llama.cpp/build && cmake .. -DGGML_NATIVE=OFF -DLLAMA_CURL=OFF",
+            "cd /tmp/llama.cpp/build && make -j$(nproc)",
+            # Install Python bindings
+            "cd /tmp/llama.cpp && pip install -e .",
+            # Make binaries available globally
+            "cp /tmp/llama.cpp/convert-hf-to-gguf.py /usr/local/bin/",
+            "cp /tmp/llama.cpp/build/bin/llama-quantize /usr/local/bin/",
+            "chmod +x /usr/local/bin/convert-hf-to-gguf.py",
+            "chmod +x /usr/local/bin/llama-quantize",
+        ]
+    )
 )
+
 
 def run_command(cmd: list, cwd: str, description: str) -> subprocess.CompletedProcess:
     """Run a subprocess command with proper error handling and logging."""
     logger.info(f"Running {description}...")
     try:
         result = subprocess.run(
-            cmd,
-            check=True,
-            capture_output=True,
-            text=True,
-            cwd=cwd
+            cmd, check=True, capture_output=True, text=True, cwd=cwd
         )
         if result.stdout:
             logger.info(f"{description} output: {result.stdout}")
@@ -63,6 +68,7 @@ def run_command(cmd: list, cwd: str, description: str) -> subprocess.CompletedPr
         logger.error(f"Stderr: {e.stderr}")
         raise
 
+
 def validate_gguf_file(file_path: str) -> None:
     """Validate that the GGUF file exists and has valid format."""
     if not os.path.exists(file_path):
@@ -70,19 +76,20 @@ def validate_gguf_file(file_path: str) -> None:
 
     file_size = os.path.getsize(file_path)
 
-    logger.info(f"Quantized model size: {file_size / (1024*1024):.1f} MB")
+    logger.info(f"Quantized model size: {file_size / (1024 * 1024):.1f} MB")
 
     # Validate GGUF file format
     logger.info("Validating GGUF file format...")
     try:
-        with open(file_path, 'rb') as f:
+        with open(file_path, "rb") as f:
             header = f.read(8)
-            if not header.startswith(b'GGUF'):
+            if not header.startswith(b"GGUF"):
                 raise ValueError(f"File is not a valid GGUF format (header: {header})")
         logger.info("GGUF file format validation passed")
     except Exception as e:
         logger.error(f"GGUF validation failed: {e}")
         raise
+
 
 def upload_to_r2(file_path: str, remote_filename: str) -> None:
     """Upload file to Cloudflare R2 storage."""
@@ -90,14 +97,14 @@ def upload_to_r2(file_path: str, remote_filename: str) -> None:
     import boto3
 
     s3 = boto3.client(
-        's3',
+        "s3",
         endpoint_url=f"https://{os.environ['CLOUDFLARE_ACCOUNT_ID']}.r2.cloudflarestorage.com",
-        aws_access_key_id=os.environ['R2_ACCESS_KEY_ID'],
-        aws_secret_access_key=os.environ['R2_SECRET_ACCESS_KEY'],
-        region_name='auto'
+        aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+        aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+        region_name="auto",
     )
 
-    bucket_name = os.environ.get('R2_BUCKET_NAME', 'masala-embed-models')
+    bucket_name = os.environ.get("R2_BUCKET_NAME", "masala-embed-models")
 
     try:
         s3.upload_file(file_path, bucket_name, remote_filename)
@@ -107,11 +114,11 @@ def upload_to_r2(file_path: str, remote_filename: str) -> None:
         raise
 
 
-
 def generate_output_filename(model_name: str, quantization_type: str) -> str:
     """Generate output filename from model name and quantization type."""
     model_slug = model_name.replace("/", "-").lower()
     return f"{model_slug}-{quantization_type.lower()}.gguf"
+
 
 def cleanup_files(*file_paths: str) -> None:
     """Clean up temporary files."""
@@ -123,18 +130,19 @@ def cleanup_files(*file_paths: str) -> None:
         except Exception as e:
             logger.warning(f"Failed to clean up {file_path}: {e}")
 
+
 @app.function(
     image=image,
     cpu=8,
     memory=16384,  # 16GB memory for quantization
     timeout=3600,  # 1 hour timeout
-    secrets=[modal.Secret.from_name("cloudflare-r2")]
+    secrets=[modal.Secret.from_name("cloudflare-r2")],
 )
 def quantize_model(
     model_name: str,
     quantization_type: str,
     output_filename: Optional[str] = None,
-    precision: str = "f16"
+    precision: str = "f16",
 ) -> dict:
     """
     Quantize a HuggingFace model to GGUF format.
@@ -168,16 +176,19 @@ def quantize_model(
     model_path = snapshot_download(
         repo_id=model_name,
         local_dir=f"{work_dir}/original",
-        ignore_patterns=["*.bin"]  # Skip .bin files, use safetensors
+        ignore_patterns=["*.bin"],  # Skip .bin files, use safetensors
     )
 
     # Convert to GGUF format with specified precision
     gguf_path = f"{work_dir}/model-{precision}.gguf"
     convert_cmd = [
-        "python3", "/usr/local/bin/convert-hf-to-gguf.py",
+        "python3",
+        "/usr/local/bin/convert-hf-to-gguf.py",
         model_path,
-        "--outtype", precision,
-        "--outfile", gguf_path
+        "--outtype",
+        precision,
+        "--outfile",
+        gguf_path,
     ]
 
     run_command(convert_cmd, work_dir, "HF to GGUF conversion")
@@ -188,7 +199,7 @@ def quantize_model(
         "/usr/local/bin/llama-quantize",
         gguf_path,
         quantized_path,
-        quantization_type
+        quantization_type,
     ]
 
     run_command(quantize_cmd, work_dir, f"{quantization_type} quantization")
@@ -206,18 +217,19 @@ def quantize_model(
     return {
         "status": "success",
         "file": output_filename,
-        "size_mb": round(file_size / (1024*1024), 1),
+        "size_mb": round(file_size / (1024 * 1024), 1),
         "format": f"gguf_{quantization_type.lower()}",
         "model": model_name,
-        "quantization_type": quantization_type
+        "quantization_type": quantization_type,
     }
+
 
 @app.local_entrypoint()
 def main(
     model_name: str,
     quantization_type: str,
     output_filename: Optional[str] = None,
-    precision: str = "f16"
+    precision: str = "f16",
 ):
     """
     Main entrypoint for quantization process.
@@ -233,7 +245,7 @@ def main(
         model_name=model_name,
         quantization_type=quantization_type,
         output_filename=output_filename,
-        precision=precision
+        precision=precision,
     )
     logger.info(f"Quantization result: {result}")
     return result
