@@ -1,7 +1,8 @@
-import modal
-import os
-from typing import Optional, Dict, Any
 import logging
+import os
+from typing import Any
+
+import modal
 
 # Configure logging
 logging.basicConfig(
@@ -54,12 +55,12 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
     secrets=[modal.Secret.from_name("cloudflare-r2")],
 )
 class UnifiedModel:
-    model: Optional[Any] = None
-    processor: Optional[Any] = None
-    model_path: Optional[str] = None
-    model_config: Dict[str, Any] = {}
+    model: Any | None = None
+    processor: Any | None = None
+    model_path: str | None = None
+    model_config: dict[str, Any] = {}
 
-    def _load_config(self) -> Dict[str, Any]:
+    def _load_config(self) -> dict[str, Any]:
         """Load model configuration from environment."""
         # return {
         #     "model_name": MODEL_NAME,
@@ -231,8 +232,8 @@ class UnifiedModel:
 
     @modal.method()
     def embed(
-        self, text: Optional[str] = None, image_url: Optional[str] = None
-    ) -> Dict[str, Any]:
+        self, text: str | None = None, image_url: str | None = None
+    ) -> dict[str, Any]:
         """Generate embeddings based on model type."""
         if self.model is None:
             return {"error": "Model not loaded"}
@@ -253,14 +254,15 @@ class UnifiedModel:
 
             else:
                 return {
-                    "error": f"Unsupported model type: {self.model_config['model_type']}"
+                    "error": f"Unsupported model type: \
+                    {self.model_config['model_type']}"
                 }
 
         except Exception as e:
             logger.error(f"Embedding error: {e}")
             return {"error": f"Embedding failed: {str(e)}"}
 
-    def _embed_text(self, text: str) -> Dict[str, Any]:
+    def _embed_text(self, text: str) -> dict[str, Any]:
         """Generate text embeddings."""
         if not text or not text.strip():
             return {"error": "Empty text provided"}
@@ -322,15 +324,15 @@ class UnifiedModel:
 
         return {"error": "Text embedding not supported for this model configuration"}
 
-    def _embed_image(self, image_url: str) -> Dict[str, Any]:
+    def _embed_image(self, image_url: str) -> dict[str, Any]:
         """Generate image embeddings."""
         if self.model_config["hf_framework"] != "transformers":
             return {
                 "error": "Image embedding only supported with transformers framework"
             }
 
-        import torch
         import requests
+        import torch
         from PIL import Image
 
         try:
@@ -368,12 +370,13 @@ class UnifiedModel:
         return {"error": "Image embedding failed"}
 
     def _embed_multimodal(
-        self, text: Optional[str], image_url: Optional[str]
-    ) -> Dict[str, Any]:
+        self, text: str | None, image_url: str | None
+    ) -> dict[str, Any]:
         """Generate multimodal embeddings."""
         if self.model_config["hf_framework"] != "transformers":
             return {
-                "error": "Multimodal embedding only supported with transformers framework"
+                "error": "Multimodal embedding only supported \
+                with transformers framework"
             }
 
         if not text and not image_url:
@@ -389,8 +392,8 @@ class UnifiedModel:
             return {"error": f"Multimodal processing failed: {str(e)}"}
 
     def _prepare_multimodal_inputs(
-        self, text: Optional[str], image_url: Optional[str]
-    ) -> Dict[str, Any]:
+        self, text: str | None, image_url: str | None
+    ) -> dict[str, Any]:
         """Prepare inputs for multimodal processing."""
         import requests
         from PIL import Image
@@ -426,8 +429,8 @@ class UnifiedModel:
         return inputs
 
     def _process_multimodal_embeddings(
-        self, inputs: Dict[str, Any], text: Optional[str], image_url: Optional[str]
-    ) -> Dict[str, Any]:
+        self, inputs: dict[str, Any], text: str | None, image_url: str | None
+    ) -> dict[str, Any]:
         """Process embeddings from multimodal inputs."""
         import torch
 
@@ -489,7 +492,7 @@ web_image = modal.Image.debian_slim(python_version="3.11").pip_install(["fastapi
 
 @app.function(image=web_image)
 @modal.fastapi_endpoint(method="POST")
-def embed(data: Dict[str, Any]) -> Dict[str, Any]:
+def embed(data: dict[str, Any]) -> dict[str, Any]:
     return unified_model.embed.remote(
         text=data.get("text"), image_url=data.get("image_url")
     )
@@ -497,5 +500,5 @@ def embed(data: Dict[str, Any]) -> Dict[str, Any]:
 
 @app.function(image=web_image)
 @modal.fastapi_endpoint(method="GET")
-def health() -> Dict[str, str]:
+def health() -> dict[str, str]:
     return {}

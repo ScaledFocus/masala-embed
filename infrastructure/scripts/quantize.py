@@ -1,8 +1,8 @@
-import modal
+import logging
 import os
 import subprocess
-import logging
-from typing import Optional
+
+import modal
 
 # Configure logging
 logging.basicConfig(
@@ -141,7 +141,7 @@ def cleanup_files(*file_paths: str) -> None:
 def quantize_model(
     model_name: str,
     quantization_type: str,
-    output_filename: Optional[str] = None,
+    output_filename: str | None = None,
     precision: str = "f16",
 ) -> dict:
     """
@@ -228,7 +228,7 @@ def quantize_model(
 def main(
     model_name: str,
     quantization_type: str,
-    output_filename: Optional[str] = None,
+    output_filename: str | None = None,
     precision: str = "f16",
 ):
     """
