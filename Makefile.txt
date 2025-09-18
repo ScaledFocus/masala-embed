@@ -1,0 +1,18 @@
+PY=python3
+CFG=nanobeir_config.yaml
+OUT=./outputs/nanobeir_leaderboard.json
+
+.PHONY: setup eval show clean
+
+setup:
+	$(PY) -m pip install -r requirements.txt
+
+eval:
+	$(PY) evaluate_nanobeir.py --config $(CFG)
+
+show:
+	@echo "== Leaderboard =="
+	@cat $(OUT) || true
+
+clean:
+	rm -rf outputs
