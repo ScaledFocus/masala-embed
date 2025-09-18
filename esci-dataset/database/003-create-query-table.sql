@@ -6,7 +6,7 @@ create table if not exists query (
     id serial primary key,
     
     -- Query content
-    query_text text not null,
+    query_content text not null,
     
     -- Optional structured filters (JSON)
     query_filters jsonb,
@@ -28,3 +28,5 @@ create index if not exists idx_query_data_gen_hash on query (data_gen_hash);
 comment on table query is 'Unique search queries with optional filters and metadata';
 comment on column query.query_filters is 'JSON structure for search filters (cuisine, dietary restrictions, etc.)';
 comment on column query.data_gen_hash is 'Hash for tracking data generation batches';
+-- query_content can be text or image URL
+comment on column query.query_content is 'The search query text or image URL';

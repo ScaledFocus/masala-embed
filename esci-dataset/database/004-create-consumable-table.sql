@@ -30,5 +30,5 @@ create index if not exists idx_consumable_type on consumable (consumable_type);
 create index if not exists idx_consumable_cooking_method on consumable (consumable_cooking_method);
 
 -- Optional comments for clarity
-comment on table consumable is 'Food items with metadata and nutritional information';
+comment on table consumable is 'Food or beverage items with metadata and nutritional information';
 comment on column consumable.consumable_nutritional_profile is 'JSON structure for nutritional data (calories, macros, etc.)';
