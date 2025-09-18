@@ -3,7 +3,7 @@
 
 create table if not exists consumable (
     -- Primary identifier
-    id text primary key,
+    id serial primary key,
     
     -- Required fields
     image_url text not null,
