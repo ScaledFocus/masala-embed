@@ -1,0 +1,16 @@
+[project]
+name = "esci-dataset"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "alembic>=1.16.5",
+    "dspy>=3.0.3",
+    "huggingface-hub>=0.34.4",
+    "pandas>=2.3.2",
+    "polars>=1.32.3",
+    "psycopg2-binary>=2.9.10",
+    "python-dotenv>=1.1.1",
+    "supabase>=2.18.1",
+]
