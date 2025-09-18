@@ -1,0 +1,13 @@
+output_dir: ./outputs
+leaderboard_json: ./outputs/nanobeir_leaderboard.json
+datasets: ["scifact"]
+
+models:
+  baseline:
+    hf_id: sentence-transformers/all-MiniLM-L6-v2
+  # qwen_edge_llamaserver:
+  #   endpoint: http://127.0.0.1:8080/embedding
+
+cost_per_1k:
+  baseline: 0.10               # <-- whatever estimate you want (e.g., $0.10 / 1k queries)
+  qwen_edge_llamaserver: 0.02  # <-- set this too if you run the llama server model

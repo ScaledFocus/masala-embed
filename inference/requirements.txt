@@ -1,0 +1,6 @@
+beir==2.0.0
+git+https://github.com/UKPLab/beir.git@main
+sentence-transformers==2.7.0
+pyyaml
+requests
+faiss-cpu
