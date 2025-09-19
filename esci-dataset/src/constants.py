@@ -181,6 +181,10 @@ FOOD_QUERY_DIMENSIONS = {
         "Tea-time snacks",
         "Festival food",
         "Holiday special",
+        "Starters",
+        "Appetizers",
+        "Main course",
+        "Side dish"
     ],
     "nutritional_profile": [
         "High Protein",
