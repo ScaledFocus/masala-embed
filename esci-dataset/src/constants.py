@@ -1,0 +1,78 @@
+# Ingredient categories for dietary evaluation
+
+SEAFOOD = {
+    'fish', 'salmon', 'tuna', 'cod', 'shrimp', 'shrimps', 'prawns', 'crab', 'lobster', 'oysters', 
+    'mussels', 'clams', 'scallops', 'squid', 'octopus', 'seafood', 'fish sauce', 'oyster sauce', 
+    'prawn', 'clam', 'oyster'
+}
+
+NON_SEAFOOD_NON_VEG = {
+    'beef', 'ground beef', 'pork', 'chicken', 'duck', 'turkey', 'lamb', 'mutton', 'veal', 'venison',
+    'bacon', 'ham', 'sausage', 'pepperoni', 'salami', 'chorizo', 'prosciutto', 'meat',
+    'gelatin', 'lard', 'chicken stock', 'beef stock', 'bone broth'
+}
+
+NON_VEG = SEAFOOD | NON_SEAFOOD_NON_VEG
+
+EGG = {'egg', 'eggs', 'egg white', 'egg yolk', 'mayonnaise'}
+
+MILK = {'milk', 'cheese', 'butter', 'yogurt', 'cream', 'ghee', 'paneer', 'curd'}
+
+HONEY = {'honey'}
+
+GLUTEN = {'wheat', 'barley', 'rye', 'malt', 'triticale', 'spelt', 'farro', 'couscous', 'semolina', 'bulgur', 'bread', 'pasta', 'noodles', 'flour', 'cracker'}
+
+NUTS = {'almond', 'walnut', 'peanut', 'cashew', 'pecan', 'hazelnut', 'pistachio', 'macadamia', 'brazil nut', 'pine nut', 'nuts'}
+
+FOOD_QUERY_DIMENSIONS = {
+    "dietary_restrictions": [
+        "Vegetarian", "Vegan", "Non-vegetarian", "Halal", "Kosher", 
+        "Gluten-free", "Dairy-free", "Nut-free", "Low-carb", "Keto", 
+        "Paleo", "Diabetic-friendly", "Lacto Vegetarian", "Pescetarian", 
+        "Lacto-Ovo Vegetarian", "Gluten Free", "Nut Free", "Raw Food", 
+        "Low sodium", "Heart Healthy"
+    ],
+    
+    "cuisine": [
+        "Indian", "Italian", "Pizza", "Pasta", "Chinese", "Thai", 
+        "Japanese", "Korean", "Mediterranean", "Middle Eastern", 
+        "Mexican", "American", "Continental", "Fusion", "Fast Food", 
+        "Vietnamese", "French", "Mongolian", "Lebanese", "Arabic", 
+        "Iranian", "Afghan", "Greek", "Spanish", "Russian", "German", 
+        "Ethiopian", "South Indian", "North Indian"
+    ],
+    
+    "healthiness": [
+        "Healthy", "Low-calorie", "Organic", "Fresh", "Light", 
+        "Grilled", "Steamed", "Wholesome", "Natural", "Nutritious", 
+        "Clean", "Boiled", "Air Fried"
+    ],
+    
+    "meal_type": [
+        "Breakfast", "Brunch", "Lunch", "Snacks", "Dinner", "Late-night", 
+        "Beverages", "Desserts", "Street Food", "Party food", "Cocktail", 
+        "Pre-workout", "Post-workout", "Kids meal", "Baby food", 
+        "Comfort food", "Picnic food", "Office lunch", "Tea-time snacks", 
+        "Festival food", "Holiday special"
+    ],
+    
+    "nutritional_profile": [
+        "High Protein", "Low Carb", "High Fiber", "Sugar-free", 
+        "High Fat", "Low Fat"
+    ],
+    
+    "urgency": [
+        "quick", "fast delivery", "under 30 minutes", "10 minutes", 
+        "same day", "scheduled", "pre-order"
+    ],
+    
+    "price": [
+        "cheap", "under 5 dollars", "gourmet", "under $15", "under $20", 
+        "family pack", "luxury", "discount", "coupon", "premium", 
+        "value meal", "combo deal", "bulk order", "budget"
+    ],
+    
+    "location": [
+        "near me", "downtown", "in my area"
+    ]
+}
