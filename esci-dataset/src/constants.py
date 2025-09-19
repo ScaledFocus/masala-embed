@@ -184,7 +184,7 @@ FOOD_QUERY_DIMENSIONS = {
         "Starters",
         "Appetizers",
         "Main course",
-        "Side dish"
+        "Side dish",
     ],
     "nutritional_profile": [
         "High Protein",
