@@ -20,7 +20,7 @@ def is_non_veg(ingredients_str):
         return False
     try:
         ingredients = json.loads(ingredients_str)
-    except:
+    except Exception:
         ingredients = [ingredients_str]
     return any(any(nv in str(ing).lower() for nv in NON_VEG) for ing in ingredients)
 
@@ -30,7 +30,7 @@ def has_egg(ingredients_str):
         return False
     try:
         ingredients = json.loads(ingredients_str)
-    except:
+    except Exception:
         ingredients = [ingredients_str]
     return any(any(eg in str(ing).lower() for eg in EGG) for ing in ingredients)
 
@@ -40,7 +40,7 @@ def has_milk(ingredients_str):
         return False
     try:
         ingredients = json.loads(ingredients_str)
-    except:
+    except Exception:
         ingredients = [ingredients_str]
     return any(any(mk in str(ing).lower() for mk in MILK) for ing in ingredients)
 
@@ -50,7 +50,7 @@ def has_honey(ingredients_str):
         return False
     try:
         ingredients = json.loads(ingredients_str)
-    except:
+    except Exception:
         ingredients = [ingredients_str]
     return any(any(hn in str(ing).lower() for hn in HONEY) for ing in ingredients)
 
@@ -60,7 +60,7 @@ def has_gluten(ingredients_str):
         return False
     try:
         ingredients = json.loads(ingredients_str)
-    except:
+    except Exception:
         ingredients = [ingredients_str]
     return any(any(gt in str(ing).lower() for gt in GLUTEN) for ing in ingredients)
 
@@ -70,7 +70,7 @@ def has_nuts(ingredients_str):
         return False
     try:
         ingredients = json.loads(ingredients_str)
-    except:
+    except Exception:
         ingredients = [ingredients_str]
     return any(any(nt in str(ing).lower() for nt in NUTS) for ing in ingredients)
 
@@ -81,7 +81,7 @@ def has_seafood_only(ingredients_str):
         return False
     try:
         ingredients = json.loads(ingredients_str)
-    except:
+    except Exception:
         ingredients = [ingredients_str]
 
     has_seafood_ing = any(
@@ -118,16 +118,20 @@ def print_dietary_stats(df):
     print(f"Non-veg: {df['is_non_veg'].sum():,} ({df['is_non_veg'].mean() * 100:.1f}%)")
     print(f"Contains egg: {df['has_egg'].sum():,} ({df['has_egg'].mean() * 100:.1f}%)")
     print(
-        f"Contains milk: {df['has_milk'].sum():,} ({df['has_milk'].mean() * 100:.1f}%)"
+        f"Contains milk:\
+        {df['has_milk'].sum():,} ({df['has_milk'].mean() * 100:.1f}%)"
     )
     print(
-        f"Contains honey: {df['has_honey'].sum():,} ({df['has_honey'].mean() * 100:.1f}%)"
+        f"Contains honey:\
+        {df['has_honey'].sum():,} ({df['has_honey'].mean() * 100:.1f}%)"
     )
     print(
-        f"Contains gluten: {df['has_gluten'].sum():,} ({df['has_gluten'].mean() * 100:.1f}%)"
+        f"Contains gluten:\
+        {df['has_gluten'].sum():,} ({df['has_gluten'].mean() * 100:.1f}%)"
     )
     print(
-        f"Contains nuts: {df['has_nuts'].sum():,} ({df['has_nuts'].mean() * 100:.1f}%)"
+        f"Contains nuts:\
+        {df['has_nuts'].sum():,} ({df['has_nuts'].mean() * 100:.1f}%)"
     )
     # vegetarian
     vegetarian = (~df["is_non_veg"]).sum()
@@ -153,5 +157,6 @@ def print_dietary_stats(df):
     # pescetarian (seafood but no other meat)
     pescetarian = df["has_seafood_only"].sum()
     print(
-        f"Pescetarian-friendly (seafood only): {pescetarian:,} ({pescetarian / total * 100:.1f}%)"
+        f"Pescetarian-friendly (seafood only):\
+        {pescetarian:,} ({pescetarian / total * 100:.1f}%)"
     )
