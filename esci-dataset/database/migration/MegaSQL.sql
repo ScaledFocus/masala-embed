@@ -166,3 +166,11 @@ create index if not exists idx_label_auto_score on label (auto_label_score) wher
 comment on table label is 'ESCI labels assigned by human or AI labelers';
 comment on column label.esci_label is 'ESCI classification: Exact, Substitute, Complement, or Irrelevant';
 comment on column label.auto_label_score is 'Confidence score for AI-generated labels (null for human labels)';
+
+-- ========================================
+-- 007: Add example_gen_hash to Example Table
+-- ========================================
+-- SQL script to add example_gen_hash column to 'example' table
+
+ALTER TABLE example
+ADD COLUMN example_gen_hash TEXT;
