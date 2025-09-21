@@ -74,14 +74,14 @@ def execute_query(query, params=None):
 def drop_all_records(table_name: str, confirm: bool = False) -> dict[str, int]:
     """
     Drop all records from a specified table.
-    
+
     Args:
         table_name: Name of the table to clear
         confirm: Safety flag - must be True to execute
-        
+
     Returns:
         Dictionary with operation statistics
-        
+
     Example:
         # Clear consumable table
         result = drop_all_records("consumable", confirm=True)
@@ -89,38 +89,38 @@ def drop_all_records(table_name: str, confirm: bool = False) -> dict[str, int]:
     """
     if not confirm:
         raise ValueError("Safety check: confirm=True required to drop all records")
-    
+
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             # Get count before deletion
             cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
             initial_count = cursor.fetchone()[0]
-            
+
             # Delete all records
             cursor.execute(f"DELETE FROM {table_name}")
             deleted_count = cursor.rowcount
-            
+
             # Reset auto-increment sequence (if applicable)
             cursor.execute(f"""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = %s 
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = %s
                 AND column_default LIKE 'nextval%%'
             """, (table_name,))
-            
+
             auto_increment_cols = cursor.fetchall()
             if auto_increment_cols:
                 # Reset sequence for auto-increment columns
                 for col in auto_increment_cols:
                     sequence_name = f"{table_name}_{col[0]}_seq"
                     cursor.execute(f"ALTER SEQUENCE {sequence_name} RESTART WITH 1")
-            
+
             conn.commit()
-            
+
             # Verify deletion
             cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
             final_count = cursor.fetchone()[0]
-    
+
     return {
         "table_name": table_name,
         "initial_count": initial_count,
