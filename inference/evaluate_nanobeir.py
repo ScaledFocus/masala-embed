@@ -7,19 +7,37 @@ NanoBEIR evaluator with one-query debug peek.
 - Prints a sanity check for one query so you can see relevant IDs vs retrieved IDs
 """
 
-import os, json, math, time, statistics, argparse, random
-from typing import List, Dict, Any, Iterable, Union
+# --- Python Standard Library Imports ---
+import argparse
+import json
+import os
+import random
+import statistics
+import time
+from typing import Any, Dict, List
+
+# --- Third-Party Imports ---
+import torch
+import yaml
+from beir import util
+from beir.datasets.data_loader import GenericDataLoader
+from beir.retrieval.evaluation import EvaluateRetrieval
+from beir.retrieval.search.dense import DenseRetrievalExactSearch as DRES
+from sentence_transformers import SentenceTransformer
+from transformers import AutoModel, AutoTokenizer
 
 # ----------------- Tunables -----------------
 MAX_CHARS = 2000
 RETRY_BACKOFF = [0.0, 0.2, 0.6]
-RETRY_SHRINK  = [1.00, 0.60, 0.35]
-import torch
+RETRY_SHRINK = [1.00, 0.60, 0.35]
+
+
 # ----------------- Small utilities -----------------
 def p95(latencies_ms: List[float]) -> float:
     if not latencies_ms:
         return 0.0
     return float(statistics.quantiles(latencies_ms, n=100)[94])
+
 
 def time_calls(fn, payloads: List[Any], warmup: int = 3) -> float:
     if not payloads:
@@ -33,6 +51,7 @@ def time_calls(fn, payloads: List[Any], warmup: int = 3) -> float:
         t1 = time.time()
         lat.append((t1 - t0) * 1000.0)
     return p95(lat)
+
 
 def median_rank(results, qrels) -> float:
     ranks = []
@@ -49,40 +68,34 @@ def median_rank(results, qrels) -> float:
         return 0.0
     ranks.sort()
     m = len(ranks)
-    return float(ranks[m//2] if m % 2 else (ranks[m//2 - 1] + ranks[m//2]) / 2)
+    return float(ranks[m // 2] if m % 2 else (ranks[m // 2 - 1] + ranks[m // 2]) / 2)
 
-# ----------------- Minimal BEIR imports -----------------
-def _imports():
-    global util, GenericDataLoader, EvaluateRetrieval, DRES
-    from beir import util
-    from beir.datasets.data_loader import GenericDataLoader
-    from beir.retrieval.evaluation import EvaluateRetrieval
-    from beir.retrieval.search.dense import DenseRetrievalExactSearch as DRES
 
 # ----------------- Dataset URLs -----------------
 _BEIR_URLS = {
     "scifact": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip",
-    "fiqa":    "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/fiqa.zip",
+    "fiqa": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/fiqa.zip",
     "scidocs": "https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scidocs.zip",
 }
 
+
 def load_dataset(name: str, base_dir: str = "./datasets"):
-    _imports()
     url_or_id = _BEIR_URLS.get(name, name)
     data_path = util.download_and_unzip(url_or_id, base_dir)
     corpus, queries, qrels = GenericDataLoader(data_folder=data_path).load(split="test")
     return corpus, queries, qrels
 
+
 # ----------------- Model wrappers -----------------
 def _doc_text(doc: Dict[str, str]) -> str:
     title = (doc.get("title") or "").strip()
-    text  = (doc.get("text")  or "").strip()
+    text = (doc.get("text") or "").strip()
     merged = (title + " " + text).strip()
     return merged[:MAX_CHARS] if len(merged) > MAX_CHARS else merged
 
+
 class STModel:
     def __init__(self, hf_id: str):
-        from sentence_transformers import SentenceTransformer
         self.model = SentenceTransformer(hf_id)
 
     def encode_queries(self, queries, batch_size=32, **kwargs):
@@ -92,8 +105,10 @@ class STModel:
 
     def encode_corpus(self, corpus, batch_size=32, **kwargs):
         docs_iter = corpus.values() if isinstance(corpus, dict) else corpus
-        texts = [((d.get("title") or "") + " " + (d.get("text") or "")).strip()[:MAX_CHARS]
-                 for d in docs_iter]
+        texts = [
+            ((d.get("title") or "") + " " + (d.get("text") or "")).strip()[:MAX_CHARS]
+            for d in docs_iter
+        ]
         return self.model.encode(
             texts, convert_to_numpy=True, batch_size=batch_size, show_progress_bar=True
         )
@@ -106,10 +121,8 @@ class QwenHFEncoder:
     - Mean-pools token embeddings
     - Optional L2 normalization
     """
-    def __init__(self, hf_id: str, pooling: str = "mean", normalize: bool = True, max_len: int = 512):
-        import torch
-        from transformers import AutoModel, AutoTokenizer
 
+    def __init__(self, hf_id: str, pooling: str = "mean", normalize: bool = True, max_len: int = 512):
         self.torch = torch
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.pooling = pooling
@@ -120,15 +133,15 @@ class QwenHFEncoder:
         self.tokenizer = AutoTokenizer.from_pretrained(
             hf_id, use_fast=False, trust_remote_code=True
         )
-        self.model = AutoModel.from_pretrained(
-            hf_id, trust_remote_code=True
-        ).to(self.device)
+        self.model = AutoModel.from_pretrained(hf_id, trust_remote_code=True).to(
+            self.device
+        )
         self.model.eval()
 
     def _encode_batch(self, texts, batch_size=32):
         embs = []
         for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
+            batch = texts[i : i + batch_size]
             toks = self.tokenizer(
                 batch,
                 padding=True,
@@ -178,15 +191,12 @@ class QwenHFEncoder:
 
         def _merge(doc):
             title = (doc.get("title") or "").strip()
-            text  = (doc.get("text")  or "").strip()
+            text = (doc.get("text") or "").strip()
             s = (title + " " + text).strip()
             return s[:2000] if len(s) > 2000 else s
 
         texts = [_merge(d) for d in docs_iter]
         return self._encode_batch(texts, batch_size=batch_size)
-
-
-
 
 
 # ----------------- Evaluation + Debug Peek -----------------
@@ -208,16 +218,22 @@ def debug_one_query(corpus, queries, qrels, results, k=5):
     print("\n============= DEBUG PEEK =============")
     print(f"Query ID: {qid}")
     print(f"Query: {q_text}")
-    print(f"Relevant doc IDs ({len(relevant)}): {sorted(list(relevant))[:10]}{' ...' if len(relevant)>10 else ''}")
-    print("\nTop-{} retrieved:".format(k))
+    print(
+        f"Relevant doc IDs ({len(relevant)}): {sorted(list(relevant))[:10]}"
+        f"{' ...' if len(relevant)>10 else ''}"
+    )
+    print(f"\nTop-{k} retrieved:")
     for i, (did, score) in enumerate(ranked, 1):
-        title = (corpus.get(did, {}).get('title') if isinstance(corpus, dict) else None) or ""
+        title = (
+            (corpus.get(did, {}).get("title") if isinstance(corpus, dict) else None)
+            or ""
+        )
         print(f"{i:>2}. {did}  score={score:.4f}  title={title[:80]}")
     print(f"\nOverlap@{k}: {sorted(list(overlap)) if overlap else 'None'}")
     print("=====================================\n", flush=True)
 
+
 def evaluate_model(beir_model, corpus, queries, qrels, cost_per_1k: float):
-    _imports()
     retriever_model = DRES(beir_model, batch_size=32)
     retriever = EvaluateRetrieval(retriever_model, score_function="cos_sim")
 
@@ -233,20 +249,23 @@ def evaluate_model(beir_model, corpus, queries, qrels, cost_per_1k: float):
                 continue
             total += 1
             relevant = {did for did, rel in rels.items() if rel > 0}
-            ranked = sorted(results[qid].items(), key=lambda kv: kv[1], reverse=True)[:k]
+            ranked = sorted(results[qid].items(), key=lambda kv: kv[1], reverse=True)[
+                :k
+            ]
             retrieved_ids = {did for did, _ in ranked}
             if relevant & retrieved_ids:
                 hits += 1
         return (hits / total) if total > 0 else 0.0
 
-    R1  = recall_at_k(1)
-    R5  = recall_at_k(5)
-    R10 = recall_at_k(10)
+    r1 = recall_at_k(1)
+    r5 = recall_at_k(5)
+    r10 = recall_at_k(10)
 
-    print(f"[debug] R@1={R1:.3f}  R@5={R5:.3f}  R@10={R10:.3f}", flush=True)
+    print(f"[debug] R@1={r1:.3f}  R@5={r5:.3f}  R@10={r10:.3f}", flush=True)
 
     # --- NDCG@10 from BEIR (robust pick of the key) ---
-    ndcg, _map, recall_dict, precision = retriever.evaluate(qrels, results, retriever.k_values)
+    ndcg, _, _, _ = retriever.evaluate(qrels, results, retriever.k_values)
+
     def _pick_ndcg10(d):
         for key in (10, "10", "ndcg@10", "NDCG@10"):
             if key in d:
@@ -256,24 +275,27 @@ def evaluate_model(beir_model, corpus, queries, qrels, cost_per_1k: float):
             for v in d.values():
                 try:
                     return _pick_ndcg10(v)
-                except Exception:
+                except (TypeError, KeyError):
                     pass
         return 0.0
-    N10 = _pick_ndcg10(ndcg)
+
+    n10 = _pick_ndcg10(ndcg)
 
     # --- Median rank of first relevant (as before) ---
     medr = float(median_rank(results, qrels))
 
     # --- Latency p95 on first ~50 queries ---
     qids = list(queries.keys())
-    probe = [queries[q] for q in qids[:min(50, len(qids))]]
-    lat = time_calls(lambda batch: beir_model.encode_queries(batch, batch_size=1), probe, warmup=3)
+    probe = [queries[q] for q in qids[: min(50, len(qids))]]
+    lat = time_calls(
+        lambda batch: beir_model.encode_queries(batch, batch_size=1), probe, warmup=3
+    )
 
     return {
-        "R@1": float(R1),
-        "R@5": float(R5),
-        "R@10": float(R10),
-        "NDCG@10": float(N10),
+        "R@1": float(r1),
+        "R@5": float(r5),
+        "R@10": float(r10),
+        "NDCG@10": float(n10),
         "MedR": float(medr),
         "Latency_ms_p95": float(lat),
         "Cost_per_1k_queries": float(cost_per_1k),
@@ -282,7 +304,6 @@ def evaluate_model(beir_model, corpus, queries, qrels, cost_per_1k: float):
 
 # ----------------- Main -----------------
 def main():
-    import yaml
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
     args = ap.parse_args()
@@ -292,7 +313,9 @@ def main():
 
     out_dir = cfg.get("output_dir", "./outputs")
     os.makedirs(out_dir, exist_ok=True)
-    leaderboard_path = cfg.get("leaderboard_json", f"{out_dir}/nanobeir_leaderboard.json")
+    leaderboard_path = cfg.get(
+        "leaderboard_json", f"{out_dir}/nanobeir_leaderboard.json"
+    )
 
     datasets = cfg.get("datasets", ["scifact"])
     cost = cfg.get("cost_per_1k", {})
@@ -307,26 +330,34 @@ def main():
         if "baseline" in models_cfg:
             m_id = models_cfg["baseline"]["hf_id"]
             print(f"[baseline] {m_id}")
-            out = evaluate_model(STModel(m_id), corpus, queries, qrels, cost.get("baseline", 0.0))
+            out = evaluate_model(
+                STModel(m_id), corpus, queries, qrels, cost.get("baseline", 0.0)
+            )
             all_out[ds]["baseline"] = out
 
         if "qwen_embedding" in models_cfg:
             m = models_cfg["qwen_embedding"]
-            hf_id     = m.get("hf_id", "Qwen/qwen3-embedding-0.6b")
-            pooling   = m.get("pooling", "mean")
+            hf_id = m.get("hf_id", "Qwen/qwen3-embedding-0.6b")
+            pooling = m.get("pooling", "mean")
             normalize = m.get("normalize", True)
-            max_len   = m.get("max_len", 512)
-            print(f"[qwen_embedding] {hf_id} | pooling={pooling} normalize={normalize} max_len={max_len}")
-            encoder = QwenHFEncoder(hf_id, pooling=pooling, normalize=normalize, max_len=max_len)
-            out = evaluate_model(encoder, corpus, queries, qrels, cost.get("qwen_embedding", 0.0))
+            max_len = m.get("max_len", 512)
+            print(
+                f"[qwen_embedding] {hf_id} | pooling={pooling} "
+                f"normalize={normalize} max_len={max_len}"
+            )
+            encoder = QwenHFEncoder(
+                hf_id, pooling=pooling, normalize=normalize, max_len=max_len
+            )
+            out = evaluate_model(
+                encoder, corpus, queries, qrels, cost.get("qwen_embedding", 0.0)
+            )
             all_out[ds]["qwen_embedding"] = out
-
-        
 
     with open(leaderboard_path, "w") as f:
         json.dump(all_out, f, indent=2)
     print(f"[saved] {leaderboard_path}")
     print(json.dumps(all_out, indent=2))
+
 
 if __name__ == "__main__":
     main()
