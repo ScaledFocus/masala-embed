@@ -127,8 +127,8 @@ Examples:
     parser.add_argument(
         "--temperature",
         type=float,
-        default=0.7,
-        help="Temperature for LLM generation (default: 0.7)"
+        default=1.2,
+        help="Temperature for LLM generation (default: 1.2)"
     )
 
     parser.add_argument(
