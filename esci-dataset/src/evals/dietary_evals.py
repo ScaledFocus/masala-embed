@@ -109,6 +109,72 @@ def evaluate_dietary_flags(df, ingredients_col="consumable_ingredients"):
 
     return df_eval
 
+def get_all_dietary_combinations(df):
+    """After getting the dietary flags, get the following combinations:
+        Vegetarian
+        Vegan
+        Non-vegetarian
+        Halal
+        Kosher
+        Gluten-free
+        Dairy-free
+        Nut-free
+        Low-carb
+        Keto
+        Paleo
+        Diabetic-friendly
+        Lacto Vegetarian
+        Pescetarian
+        Lacto-Ovo Vegetarian
+        Gluten Free
+        Nut Free
+    """
+
+    df_eval = df.copy()
+
+    # Vegetarian: No non-veg
+    df_eval["is_vegetarian"] = ~df_eval["is_non_veg"]
+
+    # Vegan: No non-veg, no egg, no milk, no honey
+    df_eval["is_vegan"] = (
+        (~df_eval["is_non_veg"])
+        & (~df_eval["has_egg"])
+        & (~df_eval["has_milk"])
+        & (~df_eval["has_honey"])
+    )
+
+    # Gluten-free
+    df_eval["is_gluten_free"] = ~df_eval["has_gluten"]
+
+    # Dairy-free
+    df_eval["is_dairy_free"] = ~df_eval["has_milk"]
+
+    # Nut-free
+    df_eval["is_nut_free"] = ~df_eval["has_nuts"]
+
+    # Lacto Vegetarian: Has milk, no egg, no non-veg
+    df_eval["is_lacto_vegetarian"] = (
+        (df_eval["has_milk"]) & (~df_eval["has_egg"]) & (~df_eval["is_non_veg"])
+    )
+
+    # Pescetarian: Has seafood only
+    df_eval["is_pescetarian"] = df_eval["has_seafood_only"]
+
+    # Lacto-Ovo Vegetarian: Has milk or egg, no non-veg
+    df_eval["is_lacto_ovo_vegetarian"] = (
+        (df_eval["has_milk"] | df_eval["has_egg"]) & (~df_eval["is_non_veg"])
+    )
+    dietary_columns = [
+        "is_vegetarian",
+        "is_vegan",
+        "is_gluten_free",
+        "is_dairy_free",
+        "is_nut_free",
+        "is_lacto_vegetarian",
+        "is_pescetarian",
+        "is_lacto_ovo_vegetarian",
+    ]
+    return df_eval, dietary_columns
 
 def print_dietary_stats(df):
     """Print dietary statistics for a DataFrame."""
