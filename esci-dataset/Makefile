@@ -37,3 +37,23 @@ load-consumables-dry:
 		$(if $(THRESHOLD),--threshold $(THRESHOLD),) \
 		$(if $(BATCH_SIZE),--batch-size $(BATCH_SIZE),) \
 		$(if $(DATA_FOLDER),--data-folder $(DATA_FOLDER),)
+
+# Example: make generate-queries ESCI=E LIMIT=100 BATCH_SIZE=10
+# Example: make generate-queries ESCI=S LIMIT=50 BATCH_SIZE=5 OUTPUT_FORMAT=csv
+# Generate food delivery queries using AI
+generate-queries:
+ifndef ESCI
+	@echo "Error: ESCI parameter is required (E, S, C, or I)"
+	@echo "Usage: make generate-queries ESCI=<E|S|C|I> [LIMIT=<num>] [BATCH_SIZE=<num>] [OPTIONS...]"
+	@exit 1
+endif
+	uv run python src/data_generation/initial_generation.py \
+		--esci_label $(ESCI) \
+		$(if $(LIMIT),--limit $(LIMIT),) \
+		$(if $(BATCH_SIZE),--batch_size $(BATCH_SIZE),) \
+		$(if $(DIETARY_FLAG),--dietary_flag,) \
+		$(if $(OUTPUT_FORMAT),--output_format $(OUTPUT_FORMAT),) \
+		$(if $(OUTPUT_PATH),--output_path $(OUTPUT_PATH),) \
+		$(if $(TEMPERATURE),--temperature $(TEMPERATURE),) \
+		$(if $(QUERIES_PER_ITEM),--queries_per_item $(QUERIES_PER_ITEM),) \
+		$(if $(MODEL),--model $(MODEL),)
