@@ -32,7 +32,7 @@ if project_root:
     sys.path.append(os.path.join(project_root, "esci-dataset", "src"))
     sys.path.append(project_root)
 
-from preprocessing import (
+from src.preprocessing import (
     hybrid_deduplicate_dataset,
     prepare_consumable_data,
     remove_null_rows,
