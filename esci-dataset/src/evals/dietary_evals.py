@@ -176,6 +176,31 @@ def get_all_dietary_combinations(df):
     ]
     return df_eval, dietary_columns
 
+
+def get_dietary_column_mapping():
+    """Get mapping of dietary columns to human-readable names."""
+    return {
+        "is_vegetarian": "Vegetarian",
+        "is_vegan": "Vegan",
+        "is_gluten_free": "Gluten-Free",
+        "is_dairy_free": "Dairy-Free",
+        "is_nut_free": "Nut-Free",
+        "is_lacto_vegetarian": "Lacto-Vegetarian",
+        "is_pescetarian": "Pescetarian",
+        "is_lacto_ovo_vegetarian": "Lacto-Ovo Vegetarian"
+    }
+
+
+def apply_complete_dietary_evaluation(df, ingredients_col="consumable_ingredients"):
+    """Apply complete dietary evaluation including flags and combinations."""
+    # First apply basic dietary flags
+    df_with_flags = evaluate_dietary_flags(df, ingredients_col)
+
+    # Then apply dietary combinations
+    df_complete, dietary_columns = get_all_dietary_combinations(df_with_flags)
+
+    return df_complete, dietary_columns
+
 def print_dietary_stats(df):
     """Print dietary statistics for a DataFrame."""
     total = len(df)
