@@ -97,6 +97,13 @@ Examples:
     )
 
     parser.add_argument(
+        "--query_examples",
+        type=str,
+        default=None,
+        help="Path to query examples file (optional, if not provided no examples will be included)"
+    )
+
+    parser.add_argument(
         "--output_path",
         type=str,
         default=None,
@@ -113,8 +120,8 @@ Examples:
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4o-mini",
-        help="OpenAI model to use (default: gpt-4o-mini)"
+        default="gpt-5-mini",
+        help="OpenAI model to use (default: gpt-5-mini)"
     )
 
     parser.add_argument(
@@ -129,6 +136,20 @@ Examples:
         type=float,
         default=1.2,
         help="Temperature for LLM generation (default: 1.2)"
+    )
+
+    parser.add_argument(
+        "--queries_per_item",
+        type=int,
+        default=5,
+        help="Number of queries to generate per food item (default: 5)"
+    )
+
+    parser.add_argument(
+        "--output_format",
+        choices=["json", "csv"],
+        default="json",
+        help="Output format: json or csv (default: json)"
     )
 
     parser.add_argument(
@@ -154,6 +175,9 @@ def validate_args(args: argparse.Namespace) -> None:
 
     if args.max_retries < 1:
         raise ValueError("max_retries must be at least 1")
+
+    if args.queries_per_item < 1:
+        raise ValueError("queries_per_item must be at least 1")
 
 
 def get_api_key(args: argparse.Namespace) -> str:
@@ -188,7 +212,8 @@ def generate_output_filename(args: argparse.Namespace) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dietary_suffix = "_dietary" if args.dietary_flag else ""
     limit_suffix = f"_limit{args.limit}" if args.limit else ""
-    filename = f"queries_{args.esci_label}_batch{args.batch_size}{limit_suffix}{dietary_suffix}_{timestamp}.json"
+    extension = "csv" if args.output_format == "csv" else "json"
+    filename = f"queries_{args.esci_label}_batch{args.batch_size}{limit_suffix}{dietary_suffix}_{timestamp}.{extension}"
 
     # Create output directory if it doesn't exist
     if project_root:
@@ -257,7 +282,8 @@ def process_in_batches(
     df: pd.DataFrame,
     args: argparse.Namespace,
     generator: QueryGenerator,
-    template_path: str
+    template_path: str,
+    query_examples_path: str
 ) -> dict:
     """Process dataframe in batches and combine results."""
     all_candidates = []
@@ -278,7 +304,9 @@ def process_in_batches(
             df=batch_df,
             esci_label=args.esci_label,
             batch_size=len(batch_df),  # Use actual batch size for prompt
-            include_dietary=args.dietary_flag
+            include_dietary=args.dietary_flag,
+            queries_per_item=args.queries_per_item,
+            query_examples_path=query_examples_path
         )
 
         logger.info(f"Batch {batch_idx + 1} prompt length: {len(prompt)} characters")
@@ -288,6 +316,11 @@ def process_in_batches(
             result_json = generate_queries_with_retry(
                 generator, prompt, args.esci_label, args.max_retries, batch_idx + 1
             )
+
+            # Log raw response for debugging
+            logger.info(f"Batch {batch_idx + 1} raw response length: {len(result_json)} chars")
+            if len(result_json) < 100:
+                logger.warning(f"Batch {batch_idx + 1} suspiciously short response: '{result_json}'")
 
             # Parse batch output
             parsed_output = parse_generated_output(result_json)
@@ -326,11 +359,38 @@ def save_results(
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # Save to file
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(output_data, f, indent=2, ensure_ascii=False)
+    if args.output_format == "csv":
+        # Convert to CSV format: one query per row
+        save_as_csv(output_data, output_path)
+    else:
+        # Save as JSON
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(output_data, f, indent=2, ensure_ascii=False)
 
     logger.info(f"Results saved to: {output_path}")
+
+
+def save_as_csv(output_data: dict, output_path: str) -> None:
+    """Save results in CSV format with one query per row using pandas."""
+    candidates = output_data.get("candidates", [])
+    metadata = output_data.get("metadata", {})
+
+    # Flatten data into list of records
+    records = []
+    for candidate in candidates:
+        for query_data in candidate.get("queries", []):
+            records.append({
+                'candidate_id': candidate.get("id", ""),
+                'candidate_name': candidate.get("name", ""),
+                'query': query_data.get("query", ""),
+                'dimensions_json': json.dumps(query_data.get("dimensions", {})),
+                'esci_label': metadata.get("esci_label", ""),
+                'generated_at': metadata.get("generated_at", "")
+            })
+
+    # Convert to DataFrame and save as CSV
+    df = pd.DataFrame(records)
+    df.to_csv(output_path, index=False, encoding='utf-8')
 
 
 def main():
@@ -355,11 +415,12 @@ def main():
 
         # Get template path
         template_path = get_template_path(args)
+        query_examples_path = os.path.join(project_root, args.query_examples) if args.query_examples and project_root else args.query_examples
         logger.info(f"Using template: {template_path}")
 
         # Process data in batches
         try:
-            output_dict = process_in_batches(df, args, generator, template_path)
+            output_dict = process_in_batches(df, args, generator, template_path, query_examples_path)
             logger.info(f"Successfully generated queries for {len(output_dict['candidates'])} candidates")
         except Exception as e:
             logger.error(f"Failed to process batches: {e}")

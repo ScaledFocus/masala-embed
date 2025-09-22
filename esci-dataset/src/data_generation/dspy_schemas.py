@@ -84,24 +84,45 @@ class QueryGenerator(dspy.Module):
 
 def parse_generated_output(json_str: str) -> QueryGenerationOutput:
     """Parse the generated JSON string into structured output."""
+    # Check for empty or whitespace-only responses
+    if not json_str or json_str.strip() == "":
+        raise ValueError(f"Empty response from API. Raw response: '{json_str}'")
+
     try:
         data = json.loads(json_str)
         return QueryGenerationOutput(**data)
-    except (json.JSONDecodeError, Exception) as e:
-        raise ValueError(f"Failed to parse generated output: {e}") from e
+    except json.JSONDecodeError as e:
+        # Provide more detailed error information
+        raise ValueError(
+            f"JSON decode error: {e}. Raw response (first 200 chars): '{json_str[:200]}'"
+        ) from e
+    except Exception as e:
+        raise ValueError(
+            f"Failed to parse generated output: {e}. Raw response (first 200 chars): '{json_str[:200]}'"
+        ) from e
 
 
-def setup_dspy_model(api_key: str, model: str = "gpt-4o-mini", temperature: float = 0.7) -> None:
+def setup_dspy_model(api_key: str, model: str = "gpt-5-mini", temperature: float = 0.7) -> None:
     """Setup DSPy with OpenAI model."""
     try:
-        # Try newer DSPy API first
-        lm = dspy.LM(
-            model=f"openai/{model}",
-            api_key=api_key,
-            max_tokens=4000,
-            temperature=temperature
-        )
+        # Check if it's a GPT-5 reasoning model with special requirements
+        if model.startswith("gpt-5"):
+            lm = dspy.LM(
+                model=f"openai/{model}",
+                api_key=api_key,
+                max_tokens=128000,  # GPT-5 requires max_tokens >= 16000
+                temperature=1.0 ,   # GPT-5 requires temperature=1.0
+                model_type='responses'  # GPT-5 requires model_type='responses'
+            )
+        else:
+            # GPT-4 and earlier models use standard parameters
+            lm = dspy.LM(
+                model=f"openai/{model}",
+                api_key=api_key,
+                max_tokens=4000,
+                temperature=temperature
+            )
     except Exception as e:
-        # Raise Error
-        raise RuntimeError("Check parameters for dspy.LM initialization.") from e
+        # Provide detailed error information
+        raise RuntimeError(f"DSPy LM initialization failed for model '{model}': {str(e)}") from e
     dspy.settings.configure(lm=lm)
