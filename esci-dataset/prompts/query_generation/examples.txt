@@ -1,0 +1,3 @@
+## Examples
+
+"chinese dumplings", "healthy salad", "quick lunch", "tofu", "breakfast near me", "veg food", "mexican food", "vegan italian dinner", "indian", "high protein dessert under 20 dollars", "pizza"

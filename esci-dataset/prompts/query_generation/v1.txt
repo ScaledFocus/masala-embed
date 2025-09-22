@@ -35,7 +35,8 @@ Assigned to products that do not satisfy the query in any meaningful way.
 
 We will explicitly generate queries that satisfy [E/S/C/I]
 
-**Available Food Candidates:** [FOOD CANDIDATES]
+**Available Food Candidates:** 
+[FOOD CANDIDATES]
 
 ## Available Dimensions:
 
@@ -56,7 +57,7 @@ We will explicitly generate queries that satisfy [E/S/C/I]
     - 25% queries: moderate (2 dimensions)
     - 20% queries: specific (3 dimensions)
     - 15% queries: complex (3+ dimensions)
-3. **Generate 3–5 natural queries** for each anchor using those dimensions. You can use synonyms for the dimension attribute. It’s not necessary to use the exact same phrase.
+3. **Generate exactly [QUERIES_PER_ITEM] natural queries** for each anchor using those dimensions. You can use synonyms for the dimension attribute. It's not necessary to use the exact same phrase.
     - Keep queries realistic, like someone typing fast on their phone or a person who forgot to order an ingredient.
     - **Embrace diversity in language**: Use varied vocabulary, slang, abbreviations, and natural speech patterns
     - **Include realistic imperfections**: Occasional typos, weird word ordering, incomplete phrases, run-on searches
@@ -70,9 +71,7 @@ We will explicitly generate queries that satisfy [E/S/C/I]
 5. Final reality check: Before submitting each query, ask: **"Would I actually type this into a food app?"** If no, simplify it.
 6. **Ground every query** so it could be answered by at least one candidate from the provided list.
 
-## Examples
-
-"chinese dumplings", "healthy salad", "quick lunch", "tofu", "breakfast near me", “veg food”, “mexican food”, “vegan italian dinner”, “indian”, “high protein dessert under 20 dollars”, “pizza”
+[QUERY_EXAMPLES]
 
 ## Output Format:
 
