@@ -1,9 +1,10 @@
-"""DSPy signatures and schemas for query generation."""
+"""DSPy signatures and schemas for query generation with structured Pydantic output."""
 
-import json
-from typing import Dict, List, Union, Any
+import json  # Still needed for DataFrame conversion
+from typing import Dict, List
 
 import dspy
+import pandas as pd
 from pydantic import BaseModel, Field
 
 
@@ -29,11 +30,11 @@ class QueryDimensions(BaseModel):
 
 
 class GeneratedQuery(BaseModel):
-    """Schema for a single generated query."""
+    """Schema for a single generated query with dimensions."""
 
     query: str = Field(description="The natural language query")
-    dimensions: Dict[str, Any] = Field(
-        default_factory=dict, description="Query dimensions"
+    dimensions: Dict[str, str] = Field(
+        default_factory=dict, description="Query dimensions/attributes"
     )
 
 
@@ -52,7 +53,7 @@ class QueryGenerationOutput(BaseModel):
 
 
 class QueryGenerationSignature(dspy.Signature):
-    """DSPy signature for query generation task."""
+    """DSPy signature for query generation task with structured output."""
 
     prompt_with_candidates = dspy.InputField(
         desc="Complete prompt with food candidates and instructions"
@@ -61,20 +62,20 @@ class QueryGenerationSignature(dspy.Signature):
         desc="ESCI label (E/S/C/I) to generate queries for"
     )
 
-    generated_queries = dspy.OutputField(
-        desc="JSON string containing generated queries following the specified format"
+    generated_queries: QueryGenerationOutput = dspy.OutputField(
+        desc="Structured output with candidates and generated queries with dimensions"
     )
 
 
 class QueryGenerator(dspy.Module):
-    """DSPy module for generating food delivery queries."""
+    """DSPy module for generating food delivery queries with structured output."""
 
     def __init__(self):
         super().__init__()
         self.generate = dspy.ChainOfThought(QueryGenerationSignature)
 
-    def forward(self, prompt_with_candidates: str, esci_label: str) -> str:
-        """Generate queries using DSPy."""
+    def forward(self, prompt_with_candidates: str, esci_label: str) -> QueryGenerationOutput:
+        """Generate queries using DSPy with structured Pydantic output."""
         result = self.generate(
             prompt_with_candidates=prompt_with_candidates,
             esci_label=esci_label
@@ -82,24 +83,57 @@ class QueryGenerator(dspy.Module):
         return result.generated_queries
 
 
-def parse_generated_output(json_str: str) -> QueryGenerationOutput:
-    """Parse the generated JSON string into structured output."""
-    # Check for empty or whitespace-only responses
-    if not json_str or json_str.strip() == "":
-        raise ValueError(f"Empty response from API. Raw response: '{json_str}'")
+# Legacy parse_generated_output function removed in modernized version
+# Use structured QueryGenerator.forward() instead
 
-    try:
-        data = json.loads(json_str)
-        return QueryGenerationOutput(**data)
-    except json.JSONDecodeError as e:
-        # Provide more detailed error information
-        raise ValueError(
-            f"JSON decode error: {e}. Raw response (first 200 chars): '{json_str[:200]}'"
-        ) from e
-    except Exception as e:
-        raise ValueError(
-            f"Failed to parse generated output: {e}. Raw response (first 200 chars): '{json_str[:200]}'"
-        ) from e
+
+def convert_output_to_dataframe(output: QueryGenerationOutput):
+    """
+    Convert QueryGenerationOutput to pandas DataFrame with one query per row.
+
+    Args:
+        output: QueryGenerationOutput object with candidates and queries
+
+    Returns:
+        pandas.DataFrame with columns:
+        - candidate_id: int
+        - candidate_name: str
+        - query: str
+        - dimensions_json: str (JSON string of dimensions)
+        - Individual dimension columns (dim_cuisine, dim_price, etc.)
+    """
+    # Import constants for standardized dimension columns
+    from src.constants import FOOD_QUERY_DIMENSIONS
+
+    rows = []
+
+    # Use standardized dimension keys from constants instead of output
+    dimension_columns = sorted(list(FOOD_QUERY_DIMENSIONS.keys()))
+
+    # Process each candidate and query
+    for candidate in output.candidates:
+        for query_obj in candidate.queries:
+            row = {
+                'candidate_id': candidate.id,
+                'candidate_name': candidate.name,
+                'query': query_obj.query,
+                'dimensions_json': json.dumps(query_obj.dimensions) if query_obj.dimensions else "{}"
+            }
+
+            # Add individual dimension columns (None if not present)
+            for dim_key in dimension_columns:
+                row[f'dim_{dim_key}'] = query_obj.dimensions.get(dim_key, None)
+
+            rows.append(row)
+
+    df = pd.DataFrame(rows)
+
+    # Reorder columns for better readability
+    base_columns = ['candidate_id', 'candidate_name', 'query', 'dimensions_json']
+    dim_columns = [col for col in df.columns if col.startswith('dim_')]
+    df = df[base_columns + dim_columns]
+
+    return df
 
 
 def setup_dspy_model(api_key: str, model: str = "gpt-5-mini", temperature: float = 0.7) -> None:

@@ -30,8 +30,9 @@ from database.utils.db_utils import get_table
 from src.evals.dietary_evals import apply_complete_dietary_evaluation
 from src.data_generation.dspy_schemas import (
     QueryGenerator,
-    parse_generated_output,
-    setup_dspy_model
+    QueryGenerationOutput,
+    setup_dspy_model,
+    convert_output_to_dataframe
 )
 from src.data_generation.prompt_template import (
     prepare_prompt,
@@ -145,12 +146,7 @@ Examples:
         help="Number of queries to generate per food item (default: 5)"
     )
 
-    parser.add_argument(
-        "--output_format",
-        choices=["json", "csv"],
-        default="json",
-        help="Output format: json or csv (default: json)"
-    )
+    # Output format is always CSV in modernized version
 
     parser.add_argument(
         "--max_retries",
@@ -212,8 +208,16 @@ def generate_output_filename(args: argparse.Namespace) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dietary_suffix = "_dietary" if args.dietary_flag else ""
     limit_suffix = f"_limit{args.limit}" if args.limit else ""
-    extension = "csv" if args.output_format == "csv" else "json"
-    filename = f"queries_{args.esci_label}_batch{args.batch_size}{limit_suffix}{dietary_suffix}_{timestamp}.{extension}"
+
+    # Extract prompt version from template path
+    prompt_version = "v1"  # default
+    if args.template_path:
+        template_name = os.path.basename(args.template_path)
+        if template_name.startswith("v") and ".txt" in template_name:
+            prompt_version = template_name.replace(".txt", "")
+
+    # Always use CSV format in modernized version
+    filename = f"queries_{args.esci_label}_batch{args.batch_size}{limit_suffix}{dietary_suffix}_{prompt_version}_{timestamp}.csv"
 
     # Create output directory if it doesn't exist
     if project_root:
@@ -230,21 +234,27 @@ def load_and_process_data(args: argparse.Namespace) -> pd.DataFrame:
     logger.info("Loading consumable data from database...")
 
     try:
-        # Load data from database using limit argument
-        df = get_table("consumable", limit=args.limit)
-        logger.info(f"Loaded {len(df)} records from consumable table")
+        # Load ENTIRE table first for true randomization
+        df = get_table("consumable", limit=None)
+        logger.info(f"Loaded {len(df)} total records from consumable table")
 
         if len(df) == 0:
             raise ValueError("No data found in consumable table")
+
+        # Shuffle the ENTIRE dataframe with fixed seed for reproducibility
+        df = df.sample(frac=1, random_state=42).reset_index(drop=True)
+        logger.info("Shuffled entire dataset with seed=42")
+
+        # Apply limit AFTER shuffling to get truly random subset
+        if args.limit is not None:
+            df = df.head(args.limit)
+            logger.info(f"Selected top {len(df)} records after shuffling")
 
         # Apply dietary evaluation if requested
         if args.dietary_flag:
             logger.info("Applying dietary evaluation...")
             df, dietary_columns = apply_complete_dietary_evaluation(df)
             logger.info(f"Added dietary columns: {dietary_columns}")
-
-        # Shuffle the dataframe with fixed seed for reproducibility
-        df = df.sample(frac=1, random_state=42).reset_index(drop=True)
 
         logger.info(f"Ready to process {len(df)} records in batches of {args.batch_size}")
 
@@ -261,21 +271,20 @@ def generate_queries_with_retry(
     esci_label: str,
     max_retries: int,
     batch_num: int = None
-) -> str:
-    """Generate queries with retry logic."""
+) -> QueryGenerationOutput:
+    """Generate queries with retry logic using structured output."""
     batch_info = f" (batch {batch_num})" if batch_num is not None else ""
     for attempt in range(max_retries):
         try:
             logger.info(f"Generating queries{batch_info} (attempt {attempt + 1}/{max_retries})...")
             result = generator(prompt, esci_label)
-            logger.info(f"Query generation successful{batch_info}")
+            logger.info(f"Query generation successful{batch_info}: {len(result.candidates)} candidates")
             return result
         except Exception as e:
             logger.warning(f"Generation attempt {attempt + 1} failed{batch_info}: {e}")
             if attempt == max_retries - 1:
                 logger.error(f"All {max_retries} attempts failed{batch_info}")
                 raise
-    return ""  # This line should never be reached
 
 
 def process_in_batches(
@@ -313,21 +322,17 @@ def process_in_batches(
 
         # Generate queries for this batch
         try:
-            result_json = generate_queries_with_retry(
+            structured_output = generate_queries_with_retry(
                 generator, prompt, args.esci_label, args.max_retries, batch_idx + 1
             )
 
-            # Log raw response for debugging
-            logger.info(f"Batch {batch_idx + 1} raw response length: {len(result_json)} chars")
-            if len(result_json) < 100:
-                logger.warning(f"Batch {batch_idx + 1} suspiciously short response: '{result_json}'")
-
-            # Parse batch output
-            parsed_output = parse_generated_output(result_json)
-            batch_candidates = parsed_output.model_dump().get("candidates", [])
+            # Extract candidates from structured output
+            batch_candidates = structured_output.model_dump().get("candidates", [])
             all_candidates.extend(batch_candidates)
 
-            logger.info(f"Batch {batch_idx + 1} completed: {len(batch_candidates)} candidates generated")
+            # Log structured response information
+            total_queries = sum(len(candidate.get("queries", [])) for candidate in batch_candidates)
+            logger.info(f"Batch {batch_idx + 1} completed: {len(batch_candidates)} candidates, {total_queries} queries generated")
 
         except Exception as e:
             logger.error(f"Batch {batch_idx + 1} failed: {e}")
@@ -337,12 +342,12 @@ def process_in_batches(
     return {"candidates": all_candidates}
 
 
-def save_results(
+def save_results_as_csv(
     output_data: dict,
     output_path: str,
     args: argparse.Namespace
 ) -> None:
-    """Save generation results to file."""
+    """Save generation results to CSV file using structured approach."""
     # Add metadata
     output_data["metadata"] = {
         "generated_at": datetime.now().isoformat(),
@@ -359,37 +364,48 @@ def save_results(
     # Ensure output directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    if args.output_format == "csv":
-        # Convert to CSV format: one query per row
-        save_as_csv(output_data, output_path)
-    else:
-        # Save as JSON
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(output_data, f, indent=2, ensure_ascii=False)
-
-    logger.info(f"Results saved to: {output_path}")
+    # Always save as CSV using structured approach
+    save_as_csv(output_data, output_path)
+    logger.info(f"Results saved to CSV: {output_path}")
 
 
 def save_as_csv(output_data: dict, output_path: str) -> None:
-    """Save results in CSV format with one query per row using pandas."""
+    """Save results in CSV format with one query per row using structured approach."""
     candidates = output_data.get("candidates", [])
     metadata = output_data.get("metadata", {})
 
-    # Flatten data into list of records
-    records = []
-    for candidate in candidates:
-        for query_data in candidate.get("queries", []):
-            records.append({
-                'candidate_id': candidate.get("id", ""),
-                'candidate_name': candidate.get("name", ""),
-                'query': query_data.get("query", ""),
-                'dimensions_json': json.dumps(query_data.get("dimensions", {})),
-                'esci_label': metadata.get("esci_label", ""),
-                'generated_at': metadata.get("generated_at", "")
-            })
+    if not candidates:
+        logger.warning("No candidates found in output_data for CSV export")
+        # Create empty DataFrame with expected columns
+        df = pd.DataFrame(columns=['candidate_id', 'candidate_name', 'query', 'dimensions_json', 'esci_label', 'generated_at'])
+    else:
+        # Create QueryGenerationOutput from dict data
+        try:
+            structured_output = QueryGenerationOutput(candidates=candidates)
+            # Use the new DataFrame conversion function
+            df = convert_output_to_dataframe(structured_output)
 
-    # Convert to DataFrame and save as CSV
-    df = pd.DataFrame(records)
+            # Add metadata columns
+            df['esci_label'] = metadata.get("esci_label", "")
+            df['generated_at'] = metadata.get("generated_at", "")
+
+        except Exception as e:
+            logger.warning(f"Failed to use structured conversion, falling back to legacy method: {e}")
+            # Fallback to legacy method
+            records = []
+            for candidate in candidates:
+                for query_data in candidate.get("queries", []):
+                    records.append({
+                        'candidate_id': candidate.get("id", ""),
+                        'candidate_name': candidate.get("name", ""),
+                        'query': query_data.get("query", ""),
+                        'dimensions_json': json.dumps(query_data.get("dimensions", {})),
+                        'esci_label': metadata.get("esci_label", ""),
+                        'generated_at': metadata.get("generated_at", "")
+                    })
+            df = pd.DataFrame(records)
+
+    # Save to CSV
     df.to_csv(output_path, index=False, encoding='utf-8')
 
 
@@ -430,8 +446,8 @@ def main():
         # Determine output path
         output_path = args.output_path or generate_output_filename(args)
 
-        # Save results
-        save_results(output_dict, output_path, args)
+        # Save results as CSV
+        save_results_as_csv(output_dict, output_path, args)
 
         logger.info("Query generation completed successfully!")
 
@@ -439,8 +455,9 @@ def main():
         if "candidates" in output_dict:
             total_queries = sum(len(candidate.get("queries", [])) for candidate in output_dict["candidates"])
             print(f"\n✅ Success! Generated {total_queries} queries for {len(output_dict['candidates'])} candidates")
-            print(f"📄 Output saved to: {output_path}")
+            print(f"📄 CSV output saved to: {output_path}")
             print(f"🏷️  ESCI Label: {args.esci_label} ({get_esci_label_description(args.esci_label)})")
+            print(f"📊 Format: CSV with one query per row")
         else:
             print(f"\n⚠️ Generation completed with errors. Check {output_path} for details.")
 
