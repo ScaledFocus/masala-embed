@@ -3,6 +3,8 @@
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
+mlruns/
+mlruns/*
 __pycache__/
 *.py[cod]
 *$py.class
@@ -123,9 +125,10 @@ celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
-
+output/
+output/*
 # Environments
-.env
+# .env
 .venv
 env/
 venv/
