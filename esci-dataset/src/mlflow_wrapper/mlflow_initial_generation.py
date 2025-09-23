@@ -47,6 +47,8 @@ from src.data_generation.dspy_schemas import (
     setup_dspy_model,
 )
 
+from src.utils import get_git_info
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -59,19 +61,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_git_info() -> Dict[str, str]:
-    """Get git commit hash and branch name."""
-    try:
-        commit_hash = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=project_root
-        ).decode().strip()
-        branch_name = subprocess.check_output(
-            ["git", "branch", "--show-current"], cwd=project_root
-        ).decode().strip()
-        return {"commit_hash": commit_hash, "branch_name": branch_name}
-    except Exception as e:
-        logger.warning(f"Could not get git info: {e}")
-        return {"commit_hash": "unknown", "branch_name": "unknown"}
 
 
 def setup_mlflow(experiment_name: str) -> None:
@@ -117,6 +106,17 @@ def log_parameters(args: argparse.Namespace, template_path: str, query_examples_
     # Log derived parameters
     template_name = os.path.basename(template_path) if template_path else "unknown"
     mlflow.log_param("template_version", template_name)
+
+    # Log generation approach parameters for migration tracking
+    mlflow.log_param("generation_approach", "initial")
+    mlflow.log_param("step", "complete")
+    mlflow.log_param("output_type", "enhanced_json")
+
+    # Log data_gen_hash and MLflow run ID for database migration tracking
+    git_info = get_git_info()
+    run_id = mlflow.active_run().info.run_id
+    mlflow.log_param("data_gen_hash", git_info["commit_hash"])
+    mlflow.log_param("mlflow_run_id", run_id)
 
 
 def log_template_content_as_artifact(template_path: str) -> None:
@@ -422,6 +422,9 @@ def main():
         mlflow.set_tag(f"batch-{args.batch_size}", "true")
         mlflow.set_tag(f"limit-{args.limit}", "true")
 
+        # Set approval tag for migration workflow
+        mlflow.set_tag("data_status", "pending_review")
+
         try:
             total_start_time = time.time()
 
@@ -499,7 +502,7 @@ def main():
 
             # Determine output path and save results
             output_path = args.output_path or generate_output_filename(args)
-            save_results_as_csv(output_dict, output_path, args)
+            save_results_as_csv(output_dict, output_path, args, df)
 
             # Log output as artifact
             if os.path.exists(output_path):

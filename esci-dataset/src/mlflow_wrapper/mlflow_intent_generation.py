@@ -38,6 +38,8 @@ from src.data_generation.intent_generation_approach import (
     save_results,
 )
 
+from src.utils import get_git_info
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -50,19 +52,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_git_info() -> Dict[str, str]:
-    """Get git commit hash and branch name."""
-    try:
-        commit_hash = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=project_root
-        ).decode().strip()
-        branch_name = subprocess.check_output(
-            ["git", "branch", "--show-current"], cwd=project_root
-        ).decode().strip()
-        return {"commit_hash": commit_hash, "branch_name": branch_name}
-    except Exception as e:
-        logger.warning(f"Could not get git info: {e}")
-        return {"commit_hash": "unknown", "branch_name": "unknown"}
 
 
 def setup_mlflow(experiment_name: str = "intent-generation") -> None:
@@ -106,6 +95,21 @@ def log_parameters(args: argparse.Namespace, prompt_versions: Dict[str, str]) ->
 
     # Log derived parameters
     mlflow.log_param("prompt_versions_used", json.dumps(prompt_versions))
+
+    # Log generation approach parameters for migration tracking
+    mlflow.log_param("generation_approach", "intent")
+    if args.stop_at_intents:
+        mlflow.log_param("step", "1_2")  # Stops after step 2 (intent matching)
+        mlflow.log_param("output_type", "intent_matches")
+    else:
+        mlflow.log_param("step", "complete")  # Does all three steps
+        mlflow.log_param("output_type", "enhanced_json")
+
+    # Log data_gen_hash and MLflow run ID for database migration tracking
+    git_info = get_git_info()
+    run_id = mlflow.active_run().info.run_id
+    mlflow.log_param("data_gen_hash", git_info["commit_hash"])
+    mlflow.log_param("mlflow_run_id", run_id)
 
 
 def log_step_metrics(step: int, execution_time: float, **kwargs) -> None:
@@ -232,6 +236,9 @@ def main():
         mlflow.set_tag(f"{args.num_intents}-intents", "true")
         mlflow.set_tag(f"batch-{args.batch_size}", "true")
         mlflow.set_tag(f"limit-{args.limit}", "true")
+
+        # Set approval tag for migration workflow
+        mlflow.set_tag("data_status", "pending_review")
 
         try:
             total_start_time = time.time()
