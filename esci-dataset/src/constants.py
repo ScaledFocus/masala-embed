@@ -48,6 +48,7 @@ NON_SEAFOOD_NON_VEG = {
     "chicken stock",
     "beef stock",
     "bone broth",
+    "beef patty"
 }
 
 NON_VEG = SEAFOOD | NON_SEAFOOD_NON_VEG
