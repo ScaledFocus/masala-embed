@@ -1,0 +1,16 @@
+You are a food delivery expert. Your task is to match food items to the most appropriate user search intents.
+
+**USER INTENTS AVAILABLE:**
+{intents_list}
+
+**FOOD ITEMS TO MATCH:**
+{food_dataframe}
+
+**MATCHING RULES:**
+1. Each food item should be matched to exactly ONE intent that makes the most logical sense
+2. Each intent can only be used once (or left unused if no good match)
+3. If a food doesn't match any intent well, skip it
+4. Prioritize realistic, natural connections over forced matches
+5. Consider the food's actual properties (protein content, price range, preparation style)
+
+Match each food to the best intent, providing reasoning for each match.
