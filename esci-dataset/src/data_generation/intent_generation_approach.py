@@ -159,7 +159,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def setup_dspy_client(model: str = "gpt-5", temperature: float = 1.0):
+def setup_dspy_client(model: str = "gpt-5-mini", temperature: float = 1.0):
     """Setup DSPy with OpenAI client."""
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -169,12 +169,13 @@ def setup_dspy_client(model: str = "gpt-5", temperature: float = 1.0):
     logger.info(f"DSPy setup complete with model: {model}, temperature: {temperature}")
 
 
-def step1_generate_intents(num_intents: int = 50) -> list[str]:
+def step1_generate_intents(num_intents: int = 50, prompt_path: str = None) -> list[str]:
     """Step 1: Generate pure user intents with no food bias using DSPy."""
     logger.info(f"Step 1: Generating {num_intents} pure user intents")
 
-    # Load v1.1 intent generation prompt
-    prompt_path = "prompts/intent_generation/v1.1_intent_generation.txt"
+    # Load intent generation prompt
+    if prompt_path is None:
+        prompt_path = "prompts/intent_generation/v1.1_intent_generation.txt"
     prompt_path = os.path.join(project_root, prompt_path)
     try:
         with open(prompt_path, encoding="utf-8") as f:
@@ -245,13 +246,14 @@ def load_food_data(limit: int | None = None, dietary_flag: bool = False) -> pd.D
         raise
 
 
-def step2_match_intents_to_foods(intents: list[str], food_df: pd.DataFrame, dietary_flag: bool = False) -> dict:
+def step2_match_intents_to_foods(intents: list[str], food_df: pd.DataFrame, dietary_flag: bool = False, prompt_path: str = None) -> dict:
     """Step 2: Smart 1:1 matching of foods to best-fitting intents using DSPy."""
     logger.info(f"Step 2: Matching {len(food_df)} foods to {len(intents)} intents")
     logger.info(f"Food dataframe columns: {food_df.columns.tolist()}")
 
-    # Load v1.2 intent matching prompt
-    prompt_path = "prompts/intent_generation/v1.2_intent_matching.txt"
+    # Load intent matching prompt
+    if prompt_path is None:
+        prompt_path = "prompts/intent_generation/v1.2_intent_matching.txt"
     prompt_path = os.path.join(project_root, prompt_path)
     try:
         with open(prompt_path, encoding="utf-8") as f:
@@ -295,7 +297,7 @@ def step2_match_intents_to_foods(intents: list[str], food_df: pd.DataFrame, diet
 
 
 def step3_generate_final_queries(
-    matches: dict, food_df: pd.DataFrame, queries_per_item: int = 3, dietary_flag: bool = False
+    matches: dict, food_df: pd.DataFrame, queries_per_item: int = 3, dietary_flag: bool = False, prompt_path: str = None
 ) -> list[dict]:
     """Step 3: Generate final queries for all matched pairs using DSPy."""
     logger.info(
@@ -303,8 +305,9 @@ def step3_generate_final_queries(
         f"{len(matches['matches'])} matched pairs"
     )
 
-    # Load v1.3 intent query generation prompt
-    prompt_path = "prompts/intent_generation/v1.3_intent_query_generation.txt"
+    # Load intent query generation prompt
+    if prompt_path is None:
+        prompt_path = "prompts/intent_generation/v1.3_intent_query_generation.txt"
     prompt_path = os.path.join(project_root, prompt_path)
     try:
         with open(prompt_path, encoding="utf-8") as f:
@@ -434,12 +437,19 @@ def save_results(
         for i, intent in enumerate(intents, 1):
             f.write(f"{i:2d}. {intent}\n")
 
-    # Save matches (only if not stopping at intents, since reasoning is saved in CSV)
+    # Save matches (JSON and CSV formats)
     matches_path = None
+    matches_csv_path = None
     if not stop_at_intents:
+        # Save JSON format (original)
         matches_path = f"{output_dir}/intent_generation_matches_{timestamp}.json"
         with open(matches_path, "w", encoding="utf-8") as f:
             json.dump(matches, f, indent=2)
+
+        # Save CSV format for MLflow
+        matches_csv_path = f"{output_dir}/intent_generation_matches_{timestamp}.csv"
+        matches_df = pd.DataFrame(matches["matches"])
+        matches_df.to_csv(matches_csv_path, index=False)
 
     # Save final queries
     queries_path = None
@@ -480,18 +490,23 @@ def save_results(
     if stop_at_intents:
         result_msg = f"Results saved - Intents: {intents_path}, Queries: {queries_path}"
     else:
-        result_msg = f"Results saved - Intents: {intents_path}, Matches: {matches_path}"
+        result_msg = f"Results saved - Intents: {intents_path}, Matches: {matches_path}, Matches CSV: {matches_csv_path}"
         if queries_path:
             result_msg += f", Queries: {queries_path}"
     logger.info(result_msg)
 
-    return queries_path
+    return {
+        "intents_path": intents_path,
+        "matches_path": matches_path,
+        "matches_csv_path": matches_csv_path,
+        "queries_path": queries_path
+    }
 
 
 def main():
     """Main execution."""
     parser = argparse.ArgumentParser(description="Intent-driven query generation")
-    parser.add_argument("--model", default="gpt-5", help="OpenAI model to use")
+    parser.add_argument("--model", default="gpt-5-mini", help="OpenAI model to use")
     parser.add_argument(
         "--num-intents", type=int, default=50, help="Number of intents to generate"
     )
@@ -527,6 +542,9 @@ def main():
         help="Temperature for model generation",
     )
     parser.add_argument("--output-dir", default="output", help="Output directory")
+    parser.add_argument("--step1-prompt", default=None, help="Path to step1 intent generation prompt (relative to project root)")
+    parser.add_argument("--step2-prompt", default=None, help="Path to step2 intent matching prompt (relative to project root)")
+    parser.add_argument("--step3-prompt", default=None, help="Path to step3 query generation prompt (relative to project root)")
 
     args = parser.parse_args()
 
@@ -540,7 +558,7 @@ def main():
         setup_dspy_client(args.model, args.temperature)
 
         # Step 1: Generate pure user intents
-        intents = step1_generate_intents(args.num_intents)
+        intents = step1_generate_intents(args.num_intents, args.step1_prompt)
 
         # Load food data
         food_df = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag)
@@ -561,7 +579,7 @@ def main():
             )
 
             # Step 2: Smart matching for this batch
-            batch_matches = step2_match_intents_to_foods(intents, batch_df, args.dietary_flag)
+            batch_matches = step2_match_intents_to_foods(intents, batch_df, args.dietary_flag, args.step2_prompt)
 
             # Accumulate matches
             all_matches["matches"].extend(batch_matches["matches"])
@@ -569,14 +587,14 @@ def main():
             # Step 3: Generate final queries for this batch (if not stopping at intents)
             if not args.stop_at_intents:
                 batch_queries = step3_generate_final_queries(
-                    batch_matches, batch_df, args.queries_per_item, args.dietary_flag
+                    batch_matches, batch_df, args.queries_per_item, args.dietary_flag, args.step3_prompt
                 )
                 all_final_queries.extend(batch_queries)
 
         final_queries = all_final_queries
 
         # Save results
-        save_results(
+        output_paths = save_results(
             intents, all_matches, final_queries, food_df, args.output_dir, args.stop_at_intents, args.dietary_flag
         )
 
