@@ -12,11 +12,10 @@ import logging
 import os
 import sys
 from datetime import datetime
-from pathlib import Path
-from typing import Optional
 
 import pandas as pd
 from dotenv import load_dotenv
+
 load_dotenv()
 
 # Add the project root to Python path for imports
@@ -26,28 +25,25 @@ if project_root:
     sys.path.insert(0, str(project_root))
     sys.path.insert(0, os.path.join(project_root, "esci-dataset"))
 
-from database.utils.db_utils import get_table
-from src.evals.dietary_evals import apply_complete_dietary_evaluation
-from src.data_generation.dspy_schemas import (
-    QueryGenerator,
-    QueryGenerationOutput,
-    setup_dspy_model,
-    convert_output_to_dataframe
-)
-from src.data_generation.prompt_template import (
-    prepare_prompt,
-    get_esci_label_description
-)
+from database.utils.db_utils import get_table  # noqa: E402
 
+from src.data_generation.dspy_schemas import (  # noqa: E402
+    QueryGenerationOutput,
+    QueryGenerator,
+    convert_output_to_dataframe,
+    setup_dspy_model,
+)
+from src.data_generation.prompt_template import (  # noqa: E402
+    get_esci_label_description,
+    prepare_prompt,
+)
+from src.evals.dietary_evals import apply_complete_dietary_evaluation  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('query_generation.log')
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(), logging.FileHandler("query_generation.log")],
 )
 logger = logging.getLogger(__name__)
 
@@ -60,90 +56,93 @@ def setup_argparser() -> argparse.ArgumentParser:
         epilog="""
 Examples:
   # Load 1000 records, process 10 at a time with dietary info
-  python src/data_generation/initial_generation.py --esci_label E --dietary_flag --limit 1000 --batch_size 10
+  python src/data_generation/initial_generation.py --esci_label E \\
+    --dietary_flag --limit 1000 --batch_size 10
 
   # Load entire table, process 20 at a time
   python src/data_generation/initial_generation.py --esci_label S --batch_size 20
 
   # Load 50 records, process 5 at a time with custom output
-  python src/data_generation/initial_generation.py --esci_label C --limit 50 --batch_size 5 --output_path output/queries.json
-        """
+  python src/data_generation/initial_generation.py --esci_label C \\
+    --limit 50 --batch_size 5 --output_path output/queries.json
+        """,
     )
 
     parser.add_argument(
         "--esci_label",
         choices=["E", "S", "C", "I"],
         required=True,
-        help="ESCI label filter (E=Exact, S=Substitute, C=Complement, I=Irrelevant)"
+        help="ESCI label filter (E=Exact, S=Substitute, C=Complement, I=Irrelevant)",
     )
 
     parser.add_argument(
         "--limit",
         type=int,
         default=None,
-        help="Maximum number of records to load from database (default: load all)"
+        help="Maximum number of records to load from database (default: load all)",
     )
 
     parser.add_argument(
         "--batch_size",
         type=int,
         default=10,
-        help="Number of records to process per OpenAI API call (default: 10)"
+        help="Number of records to process per OpenAI API call (default: 10)",
     )
 
     parser.add_argument(
         "--dietary_flag",
         action="store_true",
-        help="Include dietary columns in the output"
+        help="Include dietary columns in the output",
     )
 
     parser.add_argument(
         "--query_examples",
         type=str,
         default=None,
-        help="Path to query examples file (optional, if not provided no examples will be included)"
+        help="Path to query examples file (optional, if not provided no "
+        "examples will be included)",
     )
 
     parser.add_argument(
         "--output_path",
         type=str,
         default=None,
-        help="Where to save generated queries (default: auto-generated filename)"
+        help="Where to save generated queries (default: auto-generated filename)",
     )
 
     parser.add_argument(
         "--openai_api_key",
         type=str,
         default=None,
-        help="OpenAI API key (default: use OPENAI_API_KEY env var)"
+        help="OpenAI API key (default: use OPENAI_API_KEY env var)",
     )
 
     parser.add_argument(
         "--model",
         type=str,
         default="gpt-5-mini",
-        help="OpenAI model to use (default: gpt-5-mini)"
+        help="OpenAI model to use (default: gpt-5-mini)",
     )
 
     parser.add_argument(
         "--template_path",
         type=str,
         default=None,
-        help="Path to prompt template (default: prompts/query_generation/v1.txt)"
+        help="Path to prompt template (default: prompts/query_generation/v1.txt),",
     )
 
     parser.add_argument(
         "--temperature",
         type=float,
         default=1.2,
-        help="Temperature for LLM generation (default: 1.2)"
+        help="Temperature for LLM generation (default: 1.2)",
     )
 
     parser.add_argument(
         "--queries_per_item",
         type=int,
         default=5,
-        help="Number of queries to generate per food item (default: 5)"
+        help="Number of queries to generate per food item (default: 5)",
     )
 
     # Output format is always CSV in modernized version
@@ -152,7 +151,7 @@ Examples:
         "--max_retries",
         type=int,
         default=3,
-        help="Maximum retries for failed generations (default: 3)"
+        help="Maximum retries for failed generations (default: 3)",
     )
 
     return parser
@@ -181,7 +180,8 @@ def get_api_key(args: argparse.Namespace) -> str:
     api_key = args.openai_api_key or os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError(
-            "OpenAI API key not provided. Use --openai_api_key or set OPENAI_API_KEY environment variable"
+            "OpenAI API key not provided. Use --openai_api_key or set "
+            "OPENAI_API_KEY environment variable"
         )
     return api_key
 
@@ -192,14 +192,20 @@ def get_template_path(args: argparse.Namespace) -> str:
         if project_root:
             full_path = os.path.join(project_root, args.template_path)
         else:
-            raise ValueError("Project root not set. Cannot determine full template path.")
+            raise ValueError(
+                "Project root not set. Cannot determine full template path."
+            )
         return full_path
 
     # Default template path relative to project root
     if project_root:
-        default_path = os.path.join(project_root, "prompts", "query_generation", "v1.txt")
+        default_path = os.path.join(
+            project_root, "prompts", "query_generation", "v1.txt"
+        )
     else:
-        raise ValueError("Project root not set. Cannot determine default template path.")
+        raise ValueError(
+            "Project root not set. Cannot determine default template path."
+        )
     return default_path
 
 
@@ -217,7 +223,10 @@ def generate_output_filename(args: argparse.Namespace) -> str:
             prompt_version = template_name.replace(".txt", "")
 
     # Always use CSV format in modernized version
-    filename = f"queries_{args.esci_label}_batch{args.batch_size}{limit_suffix}{dietary_suffix}_{prompt_version}_{timestamp}.csv"
+    filename = (
+        f"queries_{args.esci_label}_batch{args.batch_size}{limit_suffix}"
+        f"{dietary_suffix}_{prompt_version}_{timestamp}.csv"
+    )
 
     # Create output directory if it doesn't exist
     if project_root:
@@ -256,7 +265,9 @@ def load_and_process_data(args: argparse.Namespace) -> pd.DataFrame:
             df, dietary_columns = apply_complete_dietary_evaluation(df)
             logger.info(f"Added dietary columns: {dietary_columns}")
 
-        logger.info(f"Ready to process {len(df)} records in batches of {args.batch_size}")
+        logger.info(
+            f"Ready to process {len(df)} records in batches of {args.batch_size}"
+        )
 
         return df
 
@@ -270,15 +281,21 @@ def generate_queries_with_retry(
     prompt: str,
     esci_label: str,
     max_retries: int,
-    batch_num: int = None
+    batch_num: int = None,
 ) -> QueryGenerationOutput:
     """Generate queries with retry logic using structured output."""
     batch_info = f" (batch {batch_num})" if batch_num is not None else ""
     for attempt in range(max_retries):
         try:
-            logger.info(f"Generating queries{batch_info} (attempt {attempt + 1}/{max_retries})...")
+            logger.info(
+                f"Generating queries{batch_info} "
+                f"(attempt {attempt + 1}/{max_retries})..."
+            )
             result = generator(prompt, esci_label)
-            logger.info(f"Query generation successful{batch_info}: {len(result.candidates)} candidates")
+            logger.info(
+                f"Query generation successful{batch_info}: "
+                f"{len(result.candidates)} candidates"
+            )
             return result
         except Exception as e:
             logger.warning(f"Generation attempt {attempt + 1} failed{batch_info}: {e}")
@@ -292,20 +309,28 @@ def process_in_batches(
     args: argparse.Namespace,
     generator: QueryGenerator,
     template_path: str,
-    query_examples_path: str
+    query_examples_path: str,
 ) -> dict:
     """Process dataframe in batches and combine results."""
     all_candidates = []
-    total_batches = (len(df) + args.batch_size - 1) // args.batch_size  # Ceiling division
+    total_batches = (
+        len(df) + args.batch_size - 1
+    ) // args.batch_size  # Ceiling division
 
-    logger.info(f"Processing {len(df)} records in {total_batches} batches of size {args.batch_size}")
+    logger.info(
+        f"Processing {len(df)} records in {total_batches} batches of "
+        f"size {args.batch_size}"
+    )
 
     for batch_idx in range(total_batches):
         start_idx = batch_idx * args.batch_size
         end_idx = min(start_idx + args.batch_size, len(df))
         batch_df = df.iloc[start_idx:end_idx].copy()
 
-        logger.info(f"Processing batch {batch_idx + 1}/{total_batches} ({len(batch_df)} records)")
+        logger.info(
+            f"Processing batch {batch_idx + 1}/{total_batches} "
+            f"({len(batch_df)} records)"
+        )
 
         # Prepare prompt for this batch
         prompt = prepare_prompt(
@@ -315,7 +340,7 @@ def process_in_batches(
             batch_size=len(batch_df),  # Use actual batch size for prompt
             include_dietary=args.dietary_flag,
             queries_per_item=args.queries_per_item,
-            query_examples_path=query_examples_path
+            query_examples_path=query_examples_path,
         )
 
         logger.info(f"Batch {batch_idx + 1} prompt length: {len(prompt)} characters")
@@ -331,8 +356,13 @@ def process_in_batches(
             all_candidates.extend(batch_candidates)
 
             # Log structured response information
-            total_queries = sum(len(candidate.get("queries", [])) for candidate in batch_candidates)
-            logger.info(f"Batch {batch_idx + 1} completed: {len(batch_candidates)} candidates, {total_queries} queries generated")
+            total_queries = sum(
+                len(candidate.get("queries", [])) for candidate in batch_candidates
+            )
+            logger.info(
+                f"Batch {batch_idx + 1} completed: {len(batch_candidates)} "
+                f"candidates, {total_queries} queries generated"
+            )
 
         except Exception as e:
             logger.error(f"Batch {batch_idx + 1} failed: {e}")
@@ -343,9 +373,7 @@ def process_in_batches(
 
 
 def save_results_as_csv(
-    output_data: dict,
-    output_path: str,
-    args: argparse.Namespace
+    output_data: dict, output_path: str, args: argparse.Namespace
 ) -> None:
     """Save generation results to CSV file using structured approach."""
     # Add metadata
@@ -358,7 +386,7 @@ def save_results_as_csv(
         "dietary_flag": args.dietary_flag,
         "model": args.model,
         "temperature": args.temperature,
-        "total_candidates": len(output_data.get("candidates", []))
+        "total_candidates": len(output_data.get("candidates", [])),
     }
 
     # Ensure output directory exists
@@ -377,7 +405,16 @@ def save_as_csv(output_data: dict, output_path: str) -> None:
     if not candidates:
         logger.warning("No candidates found in output_data for CSV export")
         # Create empty DataFrame with expected columns
-        df = pd.DataFrame(columns=['candidate_id', 'candidate_name', 'query', 'dimensions_json', 'esci_label', 'generated_at'])
+        df = pd.DataFrame(
+            columns=[
+                "candidate_id",
+                "candidate_name",
+                "query",
+                "dimensions_json",
+                "esci_label",
+                "generated_at",
+            ]
+        )
     else:
         # Create QueryGenerationOutput from dict data
         try:
@@ -386,27 +423,34 @@ def save_as_csv(output_data: dict, output_path: str) -> None:
             df = convert_output_to_dataframe(structured_output)
 
             # Add metadata columns
-            df['esci_label'] = metadata.get("esci_label", "")
-            df['generated_at'] = metadata.get("generated_at", "")
+            df["esci_label"] = metadata.get("esci_label", "")
+            df["generated_at"] = metadata.get("generated_at", "")
 
         except Exception as e:
-            logger.warning(f"Failed to use structured conversion, falling back to legacy method: {e}")
+            logger.warning(
+                f"Failed to use structured conversion, "
+                f"falling back to legacy method: {e}"
+            )
             # Fallback to legacy method
             records = []
             for candidate in candidates:
                 for query_data in candidate.get("queries", []):
-                    records.append({
-                        'candidate_id': candidate.get("id", ""),
-                        'candidate_name': candidate.get("name", ""),
-                        'query': query_data.get("query", ""),
-                        'dimensions_json': json.dumps(query_data.get("dimensions", {})),
-                        'esci_label': metadata.get("esci_label", ""),
-                        'generated_at': metadata.get("generated_at", "")
-                    })
+                    records.append(
+                        {
+                            "candidate_id": candidate.get("id", ""),
+                            "candidate_name": candidate.get("name", ""),
+                            "query": query_data.get("query", ""),
+                            "dimensions_json": json.dumps(
+                                query_data.get("dimensions", {})
+                            ),
+                            "esci_label": metadata.get("esci_label", ""),
+                            "generated_at": metadata.get("generated_at", ""),
+                        }
+                    )
             df = pd.DataFrame(records)
 
     # Save to CSV
-    df.to_csv(output_path, index=False, encoding='utf-8')
+    df.to_csv(output_path, index=False, encoding="utf-8")
 
 
 def main():
@@ -418,8 +462,11 @@ def main():
         validate_args(args)
 
         logger.info("Starting query generation process...")
-        logger.info(f"Configuration: ESCI={args.esci_label}, limit={args.limit}, batch_size={args.batch_size}, "
-                   f"dietary_flag={args.dietary_flag}, model={args.model}")
+        logger.info(
+            f"Configuration: ESCI={args.esci_label}, limit={args.limit}, "
+            f"batch_size={args.batch_size}, dietary_flag={args.dietary_flag}, "
+            f"model={args.model}"
+        )
 
         # Get API key and setup DSPy
         api_key = get_api_key(args)
@@ -431,13 +478,22 @@ def main():
 
         # Get template path
         template_path = get_template_path(args)
-        query_examples_path = os.path.join(project_root, args.query_examples) if args.query_examples and project_root else args.query_examples
+        query_examples_path = (
+            os.path.join(project_root, args.query_examples)
+            if args.query_examples and project_root
+            else args.query_examples
+        )
         logger.info(f"Using template: {template_path}")
 
         # Process data in batches
         try:
-            output_dict = process_in_batches(df, args, generator, template_path, query_examples_path)
-            logger.info(f"Successfully generated queries for {len(output_dict['candidates'])} candidates")
+            output_dict = process_in_batches(
+                df, args, generator, template_path, query_examples_path
+            )
+            logger.info(
+                f"Successfully generated queries for "
+                f"{len(output_dict['candidates'])} candidates"
+            )
         except Exception as e:
             logger.error(f"Failed to process batches: {e}")
             logger.info("Saving error information for debugging...")
@@ -453,13 +509,25 @@ def main():
 
         # Print summary
         if "candidates" in output_dict:
-            total_queries = sum(len(candidate.get("queries", [])) for candidate in output_dict["candidates"])
-            print(f"\n✅ Success! Generated {total_queries} queries for {len(output_dict['candidates'])} candidates")
+            total_queries = sum(
+                len(candidate.get("queries", []))
+                for candidate in output_dict["candidates"]
+            )
+            print(
+                f"\n✅ Success! Generated {total_queries} queries for "
+                f"{len(output_dict['candidates'])} candidates"
+            )
             print(f"📄 CSV output saved to: {output_path}")
-            print(f"🏷️  ESCI Label: {args.esci_label} ({get_esci_label_description(args.esci_label)})")
-            print(f"📊 Format: CSV with one query per row")
+            print(
+                f"🏷️  ESCI Label: {args.esci_label} "
+                f"({get_esci_label_description(args.esci_label)})"
+            )
+            print("📊 Format: CSV with one query per row")
         else:
-            print(f"\n⚠️ Generation completed with errors. Check {output_path} for details.")
+            print(
+                f"\n⚠️ Generation completed with errors. Check {output_path} "
+                f"for details."
+            )
 
     except KeyboardInterrupt:
         logger.info("Process interrupted by user")

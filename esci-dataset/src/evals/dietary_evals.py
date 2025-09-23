@@ -109,25 +109,26 @@ def evaluate_dietary_flags(df, ingredients_col="consumable_ingredients"):
 
     return df_eval
 
+
 def get_all_dietary_combinations(df):
     """After getting the dietary flags, get the following combinations:
-        Vegetarian
-        Vegan
-        Non-vegetarian
-        Halal
-        Kosher
-        Gluten-free
-        Dairy-free
-        Nut-free
-        Low-carb
-        Keto
-        Paleo
-        Diabetic-friendly
-        Lacto Vegetarian
-        Pescetarian
-        Lacto-Ovo Vegetarian
-        Gluten Free
-        Nut Free
+    Vegetarian
+    Vegan
+    Non-vegetarian
+    Halal
+    Kosher
+    Gluten-free
+    Dairy-free
+    Nut-free
+    Low-carb
+    Keto
+    Paleo
+    Diabetic-friendly
+    Lacto Vegetarian
+    Pescetarian
+    Lacto-Ovo Vegetarian
+    Gluten Free
+    Nut Free
     """
 
     df_eval = df.copy()
@@ -161,8 +162,8 @@ def get_all_dietary_combinations(df):
     df_eval["is_pescetarian"] = df_eval["has_seafood_only"]
 
     # Lacto-Ovo Vegetarian: Has milk or egg, no non-veg
-    df_eval["is_lacto_ovo_vegetarian"] = (
-        (df_eval["has_milk"] | df_eval["has_egg"]) & (~df_eval["is_non_veg"])
+    df_eval["is_lacto_ovo_vegetarian"] = (df_eval["has_milk"] | df_eval["has_egg"]) & (
+        ~df_eval["is_non_veg"]
     )
     dietary_columns = [
         "is_vegetarian",
@@ -187,7 +188,7 @@ def get_dietary_column_mapping():
         "is_nut_free": "Nut-Free",
         "is_lacto_vegetarian": "Lacto-Vegetarian",
         "is_pescetarian": "Pescetarian",
-        "is_lacto_ovo_vegetarian": "Lacto-Ovo Vegetarian"
+        "is_lacto_ovo_vegetarian": "Lacto-Ovo Vegetarian",
     }
 
 
@@ -200,6 +201,7 @@ def apply_complete_dietary_evaluation(df, ingredients_col="consumable_ingredient
     df_complete, dietary_columns = get_all_dietary_combinations(df_with_flags)
 
     return df_complete, dietary_columns
+
 
 def print_dietary_stats(df):
     """Print dietary statistics for a DataFrame."""

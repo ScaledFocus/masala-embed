@@ -1,7 +1,7 @@
 """Dynamic prompt template processing for query generation."""
 
 import os
-from typing import Optional
+
 import pandas as pd
 
 
@@ -10,7 +10,7 @@ def load_prompt_template(template_path: str) -> str:
     if not os.path.exists(template_path):
         raise FileNotFoundError(f"Prompt template not found at: {template_path}")
 
-    with open(template_path, 'r', encoding='utf-8') as f:
+    with open(template_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -26,12 +26,18 @@ def generate_markdown_table(df: pd.DataFrame, include_dietary: bool = False) -> 
         Markdown formatted table string
     """
     # Base columns that are always included
-    base_columns = ['id', 'consumable_name', 'consumable_ingredients']
+    base_columns = ["id", "consumable_name", "consumable_ingredients"]
 
     # Dietary columns to include if requested
     dietary_columns = [
-        'is_vegetarian', 'is_vegan', 'is_gluten_free', 'is_dairy_free',
-        'is_nut_free', 'is_lacto_vegetarian', 'is_pescetarian', 'is_lacto_ovo_vegetarian'
+        "is_vegetarian",
+        "is_vegan",
+        "is_gluten_free",
+        "is_dairy_free",
+        "is_nut_free",
+        "is_lacto_vegetarian",
+        "is_pescetarian",
+        "is_lacto_ovo_vegetarian",
     ]
 
     # Select columns based on dietary flag
@@ -55,7 +61,7 @@ def load_query_examples(examples_path: str) -> str:
     if not os.path.exists(examples_path):
         raise FileNotFoundError(f"Examples file not found at: {examples_path}")
 
-    with open(examples_path, 'r', encoding='utf-8') as f:
+    with open(examples_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -64,7 +70,7 @@ def replace_template_placeholders(
     esci_label: str,
     markdown_table: str,
     queries_per_item: int = 5,
-    examples_content: str = ""
+    examples_content: str = "",
 ) -> str:
     """
     Replace placeholders in the template with actual values.
@@ -74,7 +80,8 @@ def replace_template_placeholders(
         esci_label: ESCI label (E, S, C, or I)
         markdown_table: Markdown formatted table of food candidates
         queries_per_item: Number of queries to generate per food item
-        examples_content: Content to insert for examples placeholder (empty string if no examples)
+        examples_content: Content to insert for examples placeholder (empty string
+            if no examples)
 
     Returns:
         Template with placeholders replaced
@@ -86,10 +93,14 @@ def replace_template_placeholders(
     processed_template = processed_template.replace("[FOOD CANDIDATES]", markdown_table)
 
     # Replace queries per item placeholder
-    processed_template = processed_template.replace("[QUERIES_PER_ITEM]", str(queries_per_item))
+    processed_template = processed_template.replace(
+        "[QUERIES_PER_ITEM]", str(queries_per_item)
+    )
 
     # Replace examples placeholder (empty string if no examples)
-    processed_template = processed_template.replace("[QUERY_EXAMPLES]", examples_content)
+    processed_template = processed_template.replace(
+        "[QUERY_EXAMPLES]", examples_content
+    )
 
     return processed_template
 
@@ -101,7 +112,7 @@ def prepare_prompt(
     batch_size: int,
     include_dietary: bool = False,
     queries_per_item: int = 5,
-    query_examples_path: Optional[str] = None
+    query_examples_path: str | None = None,
 ) -> str:
     """
     Prepare the complete prompt by loading template and replacing placeholders.
@@ -135,8 +146,10 @@ def prepare_prompt(
         except FileNotFoundError:
             # If examples file not found, proceed without examples
             examples_content = ""
-            print(f"Warning: Examples file not found at {query_examples_path}, "
-                  f"proceeding without examples")
+            print(
+                f"Warning: Examples file not found at {query_examples_path}, "
+                f"proceeding without examples"
+            )
 
     # Replace placeholders
     final_prompt = replace_template_placeholders(
@@ -149,12 +162,17 @@ def prepare_prompt(
 def get_esci_label_description(esci_label: str) -> str:
     """Get description for ESCI label."""
     descriptions = {
-        "E": ("Exact match - items that directly and precisely match all "
-              "constraints of the search query"),
+        "E": (
+            "Exact match - items that directly and precisely match all "
+            "constraints of the search query"
+        ),
         "S": "Substitute - items that can be a replacement for the queried item",
-        "C": ("Complement - items that are related and typically paired "
-              "together with the queried item"),
-        "I": ("Irrelevant - products that do not satisfy the query in any "
-              "meaningful way")
+        "C": (
+            "Complement - items that are related and typically paired "
+            "together with the queried item"
+        ),
+        "I": (
+            "Irrelevant - products that do not satisfy the query in any meaningful way"
+        ),
     }
     return descriptions.get(esci_label, f"Unknown ESCI label: {esci_label}")

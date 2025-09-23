@@ -2,6 +2,7 @@
 """
 Quick script to clear consumable table without pandas dependency
 """
+
 import argparse
 import sys
 
@@ -10,10 +11,13 @@ from database.utils.db_utils import drop_all_records
 
 def main():
     """Main function with argument parsing."""
-    parser = argparse.ArgumentParser(description="Clear all records from a database table")
+    parser = argparse.ArgumentParser(
+        description="Clear all records from a database table"
+    )
     parser.add_argument("--table", required=True, help="Name of the table to clear")
-    parser.add_argument("--confirm", action="store_true",
-                       help="Confirm deletion (required for safety)")
+    parser.add_argument(
+        "--confirm", action="store_true", help="Confirm deletion (required for safety)"
+    )
 
     args = parser.parse_args()
 

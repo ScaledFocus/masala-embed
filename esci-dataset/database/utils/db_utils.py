@@ -101,12 +101,15 @@ def drop_all_records(table_name: str, confirm: bool = False) -> dict[str, int]:
             deleted_count = cursor.rowcount
 
             # Reset auto-increment sequence (if applicable)
-            cursor.execute(f"""
+            cursor.execute(
+                """
                 SELECT column_name
                 FROM information_schema.columns
                 WHERE table_name = %s
                 AND column_default LIKE 'nextval%%'
-            """, (table_name,))
+            """,
+                (table_name,),
+            )
 
             auto_increment_cols = cursor.fetchall()
             if auto_increment_cols:
@@ -126,5 +129,5 @@ def drop_all_records(table_name: str, confirm: bool = False) -> dict[str, int]:
         "initial_count": initial_count,
         "deleted_count": deleted_count,
         "final_count": final_count,
-        "sequences_reset": len(auto_increment_cols)
+        "sequences_reset": len(auto_increment_cols),
     }

@@ -1,7 +1,6 @@
 """DSPy signatures and schemas for query generation with structured Pydantic output."""
 
 import json  # Still needed for DataFrame conversion
-from typing import Dict, List
 
 import dspy
 import pandas as pd
@@ -14,9 +13,7 @@ class QueryDimensions(BaseModel):
     dietary_restrictions: str = Field(
         default="", description="Dietary restrictions (e.g., Vegetarian, Vegan)"
     )
-    cuisine: str = Field(
-        default="", description="Cuisine type (e.g., Indian, Italian)"
-    )
+    cuisine: str = Field(default="", description="Cuisine type (e.g., Indian, Italian)")
     healthiness: str = Field(
         default="", description="Health attributes (e.g., Healthy, Low-calorie)"
     )
@@ -24,7 +21,9 @@ class QueryDimensions(BaseModel):
     nutritional_profile: str = Field(
         default="", description="Nutrition info (e.g., High Protein)"
     )
-    urgency: str = Field(default="", description="Delivery urgency (e.g., fast delivery)")
+    urgency: str = Field(
+        default="", description="Delivery urgency (e.g., fast delivery)"
+    )
     price: str = Field(default="", description="Price range (e.g., cheap, budget)")
     location: str = Field(default="", description="Location context (e.g., near me)")
 
@@ -33,7 +32,7 @@ class GeneratedQuery(BaseModel):
     """Schema for a single generated query with dimensions."""
 
     query: str = Field(description="The natural language query")
-    dimensions: Dict[str, str] = Field(
+    dimensions: dict[str, str] = Field(
         default_factory=dict, description="Query dimensions/attributes"
     )
 
@@ -43,13 +42,15 @@ class CandidateQueries(BaseModel):
 
     id: int = Field(description="Candidate ID")
     name: str = Field(description="Candidate name")
-    queries: List[GeneratedQuery] = Field(description="List of generated queries")
+    queries: list[GeneratedQuery] = Field(description="List of generated queries")
 
 
 class QueryGenerationOutput(BaseModel):
     """Schema for the complete output."""
 
-    candidates: List[CandidateQueries] = Field(description="List of candidates with queries")
+    candidates: list[CandidateQueries] = Field(
+        description="List of candidates with queries"
+    )
 
 
 class QueryGenerationSignature(dspy.Signature):
@@ -58,9 +59,7 @@ class QueryGenerationSignature(dspy.Signature):
     prompt_with_candidates = dspy.InputField(
         desc="Complete prompt with food candidates and instructions"
     )
-    esci_label = dspy.InputField(
-        desc="ESCI label (E/S/C/I) to generate queries for"
-    )
+    esci_label = dspy.InputField(desc="ESCI label (E/S/C/I) to generate queries for")
 
     generated_queries: QueryGenerationOutput = dspy.OutputField(
         desc="Structured output with candidates and generated queries with dimensions"
@@ -74,11 +73,12 @@ class QueryGenerator(dspy.Module):
         super().__init__()
         self.generate = dspy.ChainOfThought(QueryGenerationSignature)
 
-    def forward(self, prompt_with_candidates: str, esci_label: str) -> QueryGenerationOutput:
+    def forward(
+        self, prompt_with_candidates: str, esci_label: str
+    ) -> QueryGenerationOutput:
         """Generate queries using DSPy with structured Pydantic output."""
         result = self.generate(
-            prompt_with_candidates=prompt_with_candidates,
-            esci_label=esci_label
+            prompt_with_candidates=prompt_with_candidates, esci_label=esci_label
         )
         return result.generated_queries
 
@@ -114,29 +114,33 @@ def convert_output_to_dataframe(output: QueryGenerationOutput):
     for candidate in output.candidates:
         for query_obj in candidate.queries:
             row = {
-                'candidate_id': candidate.id,
-                'candidate_name': candidate.name,
-                'query': query_obj.query,
-                'dimensions_json': json.dumps(query_obj.dimensions) if query_obj.dimensions else "{}"
+                "candidate_id": candidate.id,
+                "candidate_name": candidate.name,
+                "query": query_obj.query,
+                "dimensions_json": json.dumps(query_obj.dimensions)
+                if query_obj.dimensions
+                else "{}",
             }
 
             # Add individual dimension columns (None if not present)
             for dim_key in dimension_columns:
-                row[f'dim_{dim_key}'] = query_obj.dimensions.get(dim_key, None)
+                row[f"dim_{dim_key}"] = query_obj.dimensions.get(dim_key, None)
 
             rows.append(row)
 
     df = pd.DataFrame(rows)
 
     # Reorder columns for better readability
-    base_columns = ['candidate_id', 'candidate_name', 'query', 'dimensions_json']
-    dim_columns = [col for col in df.columns if col.startswith('dim_')]
+    base_columns = ["candidate_id", "candidate_name", "query", "dimensions_json"]
+    dim_columns = [col for col in df.columns if col.startswith("dim_")]
     df = df[base_columns + dim_columns]
 
     return df
 
 
-def setup_dspy_model(api_key: str, model: str = "gpt-5-mini", temperature: float = 0.7) -> None:
+def setup_dspy_model(
+    api_key: str, model: str = "gpt-5-mini", temperature: float = 0.7
+) -> None:
     """Setup DSPy with OpenAI model."""
     try:
         # Check if it's a GPT-5 reasoning model with special requirements
@@ -145,8 +149,8 @@ def setup_dspy_model(api_key: str, model: str = "gpt-5-mini", temperature: float
                 model=f"openai/{model}",
                 api_key=api_key,
                 max_tokens=128000,  # GPT-5 requires max_tokens >= 16000
-                temperature=1.0 ,   # GPT-5 requires temperature=1.0
-                model_type='responses'  # GPT-5 requires model_type='responses'
+                temperature=1.0,  # GPT-5 requires temperature=1.0
+                model_type="responses",  # GPT-5 requires model_type='responses'
             )
         else:
             # GPT-4 and earlier models use standard parameters
@@ -154,9 +158,11 @@ def setup_dspy_model(api_key: str, model: str = "gpt-5-mini", temperature: float
                 model=f"openai/{model}",
                 api_key=api_key,
                 max_tokens=4000,
-                temperature=temperature
+                temperature=temperature,
             )
     except Exception as e:
         # Provide detailed error information
-        raise RuntimeError(f"DSPy LM initialization failed for model '{model}': {str(e)}") from e
+        raise RuntimeError(
+            f"DSPy LM initialization failed for model '{model}': {str(e)}"
+        ) from e
     dspy.settings.configure(lm=lm)
