@@ -31,25 +31,30 @@ class QueryDimensions(BaseModel):
 class GeneratedQuery(BaseModel):
     """Schema for a single generated query with dimensions."""
 
-    query: str = Field(description="The natural language query")
+    query: str = Field(
+        description="Natural language search query like 'paneer tika delivry', 'cheap vegan dinner near me', or 'quick breakfast under $10'. Include realistic imperfections like typos, casual language, and varied vocabulary."
+    )
     dimensions: dict[str, str] = Field(
-        default_factory=dict, description="Query dimensions/attributes"
+        default_factory=dict,
+        description="Query attributes as key-value pairs. Examples: {'price': 'cheap', 'location': 'near me'}, {'cuisine': 'Indian', 'urgency': 'fast delivery'}, {'dietary_restrictions': 'Vegetarian', 'meal_type': 'Starters'}"
     )
 
 
 class CandidateQueries(BaseModel):
     """Schema for queries generated for a single candidate."""
 
-    id: int = Field(description="Candidate ID")
-    name: str = Field(description="Candidate name")
-    queries: list[GeneratedQuery] = Field(description="List of generated queries")
+    id: int = Field(description="Candidate ID from the food database")
+    name: str = Field(description="Candidate food name (e.g., 'Paneer Tikka', 'Braised Tofu')")
+    queries: list[GeneratedQuery] = Field(
+        description="List of generated queries for this candidate, varying from simple to complex with different dimensions"
+    )
 
 
 class QueryGenerationOutput(BaseModel):
     """Schema for the complete output."""
 
     candidates: list[CandidateQueries] = Field(
-        description="List of candidates with queries"
+        description="List of food candidates, each with multiple realistic search queries covering different complexity levels and user scenarios"
     )
 
 
