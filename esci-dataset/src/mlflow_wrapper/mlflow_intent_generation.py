@@ -92,6 +92,7 @@ def log_parameters(args: argparse.Namespace, prompt_versions: Dict[str, str]) ->
     mlflow.log_param("step1_prompt", args.step1_prompt)
     mlflow.log_param("step2_prompt", args.step2_prompt)
     mlflow.log_param("step3_prompt", args.step3_prompt)
+    mlflow.log_param("start_idx", args.start_idx)
 
     # Log derived parameters
     mlflow.log_param("prompt_versions_used", json.dumps(prompt_versions))
@@ -180,9 +181,10 @@ def save_config_snapshot(args: argparse.Namespace, output_dir: str) -> str:
 def generate_run_name(args: argparse.Namespace) -> str:
     """Generate MLflow run name based on parameters."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    start_suffix = f"-start{args.start_idx}" if args.start_idx > 0 else ""
     return (
         f"intent-{args.model}-{args.num_intents}-"
-        f"batch{args.batch_size}-limit{args.limit}-"
+        f"batch{args.batch_size}-limit{args.limit}{start_suffix}-"
         f"qpi{args.queries_per_item}-{timestamp}"
     )
 
@@ -204,6 +206,12 @@ def setup_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--step1-prompt", default=None, help="Path to step1 intent generation prompt (relative to project root)")
     parser.add_argument("--step2-prompt", default=None, help="Path to step2 intent matching prompt (relative to project root)")
     parser.add_argument("--step3-prompt", default=None, help="Path to step3 query generation prompt (relative to project root)")
+    parser.add_argument(
+        "--start_idx",
+        type=int,
+        default=0,
+        help="Starting index for resuming interrupted jobs (default: 0)",
+    )
 
     # MLflow-specific arguments
     parser.add_argument("--experiment-name", default="intent-generation", help="MLflow experiment name")
@@ -216,6 +224,10 @@ def main():
     """Main execution with MLflow tracking."""
     parser = setup_argparser()
     args = parser.parse_args()
+
+    # Validate start_idx
+    if args.start_idx < 0:
+        raise ValueError("start_idx must be non-negative")
 
     # Setup MLflow
     setup_mlflow(args.experiment_name)
@@ -236,6 +248,13 @@ def main():
         mlflow.set_tag(f"{args.num_intents}-intents", "true")
         mlflow.set_tag(f"batch-{args.batch_size}", "true")
         mlflow.set_tag(f"limit-{args.limit}", "true")
+
+        # Add resume/restart tracking
+        if args.start_idx > 0:
+            mlflow.set_tag("resumed_job", "true")
+            mlflow.set_tag(f"start-idx-{args.start_idx}", "true")
+        else:
+            mlflow.set_tag("resumed_job", "false")
 
         # Set approval tag for migration workflow
         mlflow.set_tag("data_status", "pending_review")
@@ -278,7 +297,7 @@ def main():
             log_step_metrics(1, step1_time, intents_generated=len(intents))
 
             # Load food data
-            food_df, dietary_columns = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag)
+            food_df, dietary_columns = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag, start_idx=args.start_idx)
 
             # Process foods in batches
             all_final_queries = []

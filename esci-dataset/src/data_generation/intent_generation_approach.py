@@ -206,7 +206,7 @@ def step1_generate_intents(num_intents: int = 50, prompt_path: str = None) -> li
         raise
 
 
-def load_food_data(limit: int | None = None, dietary_flag: bool = False) -> tuple[pd.DataFrame, list[str]]:
+def load_food_data(limit: int | None = None, dietary_flag: bool = False, start_idx: int = 0) -> tuple[pd.DataFrame, list[str]]:
     """Load food candidates data from database."""
     logger.info("Loading consumable data from database...")
     try:
@@ -220,10 +220,14 @@ def load_food_data(limit: int | None = None, dietary_flag: bool = False) -> tupl
         df = df.sample(frac=1, random_state=42).reset_index(drop=True)
         logger.info("Shuffled entire dataset with seed=42")
 
-        # Apply limit AFTER shuffling to get truly random subset
+        # Apply start_idx and limit AFTER shuffling
+        if start_idx > 0:
+            df = df.iloc[start_idx:]
+            logger.info(f"Resumed from index {start_idx}, {len(df)} records remaining")
+
         if limit is not None:
             df = df.head(limit)
-            logger.info(f"Selected top {len(df)} records after shuffling")
+            logger.info(f"Selected top {len(df)} records after shuffling and start_idx")
 
         # Map database column names to expected format
         df = df.rename(columns={'id': 'consumable_id'})
@@ -547,8 +551,18 @@ def main():
     parser.add_argument("--step1-prompt", default=None, help="Path to step1 intent generation prompt (relative to project root)")
     parser.add_argument("--step2-prompt", default=None, help="Path to step2 intent matching prompt (relative to project root)")
     parser.add_argument("--step3-prompt", default=None, help="Path to step3 query generation prompt (relative to project root)")
+    parser.add_argument(
+        "--start_idx",
+        type=int,
+        default=0,
+        help="Starting index for resuming interrupted jobs (default: 0)",
+    )
 
     args = parser.parse_args()
+
+    # Validate start_idx
+    if args.start_idx < 0:
+        raise ValueError("start_idx must be non-negative")
 
     logger.info(
         f"Starting intent-driven query generation with model: {args.model}, "
@@ -563,7 +577,7 @@ def main():
         intents = step1_generate_intents(args.num_intents, args.step1_prompt)
 
         # Load food data
-        food_df, dietary_columns = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag)
+        food_df, dietary_columns = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag, start_idx=args.start_idx)
 
         # Process foods in batches
         all_final_queries = []
