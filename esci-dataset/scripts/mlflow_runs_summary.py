@@ -264,9 +264,7 @@ def main():
     print(f"Generation types: {summary_df['generation_type'].value_counts().to_dict()}")
     print(f"Total queries generated: {summary_df['total_queries_generated'].sum():,}")
     print(f"Total unique queries: {summary_df['unique_queries_generated'].sum():,}")
-    date_range = (
-        f"{summary_df['start_time'].min()} to {summary_df['start_time'].max()}"
-    )
+    date_range = f"{summary_df['start_time'].min()} to {summary_df['start_time'].max()}"
     print(f"Date range: {date_range}")
     print(f"\n💾 Summary saved to: {output_file}")
 
