@@ -233,14 +233,18 @@ def load_base_prompt(prompt_path: str) -> str:
 def create_themed_prompt_variation(
     base_prompt: str, theme_config: dict[str, Any]
 ) -> str:
-    """Create a themed variation of the base prompt by adjusting emphasis and examples."""
+    """Create a themed variation of the base prompt by adjusting emphasis and
+    examples."""
 
     # Start with the base prompt
     themed_prompt = base_prompt
 
     # Add theme-specific emphasis
     theme_intro = f"\n**THEME FOCUS: {theme_config['description'].upper()}**\n"
-    theme_intro += f"Pay extra attention to these personas: {', '.join(theme_config['emphasize_personas'])}\n"
+    theme_intro += (
+        f"Pay extra attention to these personas: "
+        f"{', '.join(theme_config['emphasize_personas'])}\n"
+    )
 
     # Add theme-specific examples
     if theme_config["add_examples"]:
@@ -422,7 +426,8 @@ def setup_argparser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--base-prompt",
         default=None,
-        help="Path to base intent generation prompt (default: prompts/intent_generation/v1.1_intent_generation.txt)",
+        help="Path to base intent generation prompt "
+        "(default: prompts/intent_generation/v1.1_intent_generation.txt)",
     )
 
     parser.add_argument(
@@ -462,7 +467,8 @@ def main():
 
     logger.info("Starting intent set generation...")
     logger.info(
-        f"Configuration: sets={args.num_sets}, intents_per_theme={args.intents_per_theme}, model={args.model}"
+        f"Configuration: sets={args.num_sets}, "
+        f"intents_per_theme={args.intents_per_theme}, model={args.model}"
     )
 
     try:

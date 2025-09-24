@@ -69,7 +69,8 @@ def load_intent_sets(intent_sets_dir: str) -> list[list[str]]:
                 intent_sets.append(intent_set_data["intents"])
                 intent_set_metadata.append(intent_set_data["metadata"])
                 logger.info(
-                    f"Loaded intent set {i} with {len(intent_set_data['intents'])} intents"
+                    f"Loaded intent set {i} with "
+                    f"{len(intent_set_data['intents'])} intents"
                 )
         else:
             raise FileNotFoundError(f"Intent set file not found: {file_path}")
@@ -575,7 +576,10 @@ def save_results(
     if stop_at_intents:
         result_msg = f"Results saved - Intents: {intents_path}, Queries: {queries_path}"
     else:
-        result_msg = f"Results saved - Intents: {intents_path}, Matches: {matches_path}, Matches CSV: {matches_csv_path}"
+        result_msg = (
+            f"Results saved - Intents: {intents_path}, Matches: {matches_path}, "
+            f"Matches CSV: {matches_csv_path}"
+        )
         if queries_path:
             result_msg += f", Queries: {queries_path}"
     logger.info(result_msg)
@@ -688,7 +692,8 @@ def main():
             intent_sets, intent_set_metadata = load_intent_sets(args.use_intent_sets)
             logger.info(f"Loaded {len(intent_sets)} pre-generated intent sets")
             logger.info(
-                f"Intent set rotation frequency: every {args.intent_set_rotation} batch(es)"
+                f"Intent set rotation frequency: every "
+                f"{args.intent_set_rotation} batch(es)"
             )
             intents = None  # Will be set per batch
             intent_set_usage = {}  # Track which sets are used
@@ -696,7 +701,6 @@ def main():
             # Generate intents (original behavior)
             intents = step1_generate_intents(args.num_intents, args.step1_prompt)
             intent_sets = None
-            intent_set_metadata = None
             intent_set_usage = None
 
         # Load food data
@@ -759,7 +763,7 @@ def main():
         final_queries = all_final_queries
 
         # Save results
-        output_paths = save_results(
+        save_results(
             intents,
             all_matches,
             final_queries,
@@ -794,8 +798,10 @@ def main():
             )
             if intent_sets:
                 logger.info(
-                    f"Success! Used {len(intent_sets)} rotating intent sets to generate "
-                    f"{len(final_queries)} total queries ({intent_queries} intent + {bridged_queries} bridged)"
+                    f"Success! Used {len(intent_sets)} rotating intent sets to "
+                    f"generate "
+                    f"{len(final_queries)} total queries "
+                    f"({intent_queries} intent + {bridged_queries} bridged)"
                 )
                 if intent_set_usage:
                     logger.info(f"Intent set usage: {intent_set_usage}")

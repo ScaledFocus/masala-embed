@@ -28,7 +28,7 @@ if project_root:
     sys.path.insert(0, os.path.join(project_root, "esci-dataset"))
 
 # Import the original script functions
-from src.data_generation.intent_generation_approach import (
+from src.data_generation.intent_generation_approach import (  # noqa: E402
     get_intent_set_for_batch,
     load_food_data,
     load_intent_sets,
@@ -38,7 +38,7 @@ from src.data_generation.intent_generation_approach import (
     step2_match_intents_to_foods,
     step3_generate_final_queries,
 )
-from src.utils import get_git_info
+from src.utils import get_git_info  # noqa: E402
 
 # Configure logging
 root_path = Path(project_root) if project_root else Path(__file__).resolve().parents[2]
@@ -73,12 +73,14 @@ def setup_mlflow(experiment_name: str = "intent-generation") -> None:
         if experiment is None:
             experiment_id = mlflow.create_experiment(experiment_name)
             logger.info(
-                f"Created new MLflow experiment: {experiment_name} (ID: {experiment_id})"
+                f"Created new MLflow experiment: {experiment_name} "
+                f"(ID: {experiment_id})"
             )
         else:
             experiment_id = experiment.experiment_id
             logger.info(
-                f"Using existing MLflow experiment: {experiment_name} (ID: {experiment_id})"
+                f"Using existing MLflow experiment: {experiment_name} "
+                f"(ID: {experiment_id})"
             )
 
         mlflow.set_experiment(experiment_name)
@@ -315,7 +317,8 @@ def setup_argparser() -> argparse.ArgumentParser:
         "--parallel",
         type=int,
         default=1,
-        help="Number of parallel threads for batch processing (default: 1 for sequential)",
+        help="Number of parallel threads for batch processing "
+        "(default: 1 for sequential)",
     )
 
     return parser
@@ -459,7 +462,8 @@ def main():
                 )
                 logger.info(f"Loaded {len(intent_sets)} pre-generated intent sets")
                 logger.info(
-                    f"Intent set rotation frequency: every {args.intent_set_rotation} batch(es)"
+                    f"Intent set rotation frequency: every "
+                    f"{args.intent_set_rotation} batch(es)"
                 )
                 intents = None  # Will be set per batch
                 intent_set_usage = {}  # Track which sets are used
@@ -492,7 +496,6 @@ def main():
 
                 intents = step1_generate_intents(args.num_intents, args.step1_prompt)
                 intent_sets = None
-                intent_set_metadata = None
                 intent_set_usage = None
 
             step1_time = time.time() - step1_start
@@ -528,7 +531,8 @@ def main():
                     with open(step2_full_path, encoding="utf-8") as f:
                         step2_template = f.read()
 
-                    # Create the processed prompt with actual data (like step2_match_intents_to_foods does)
+                    # Create the processed prompt with actual data
+                    # (like step2_match_intents_to_foods does)
                     intents_list = "\n".join(
                         [f"{i + 1}. {intent}" for i, intent in enumerate(intents)]
                     )
@@ -560,7 +564,8 @@ def main():
                         batch_idx, intent_sets, args.intent_set_rotation
                     )
                     logger.info(
-                        f"Batch {batch_idx + 1}/{total_batches} using intent set #{intent_set_index + 1}"
+                        f"Batch {batch_idx + 1}/{total_batches} using intent set "
+                        f"#{intent_set_index + 1}"
                     )
                     # Track intent set usage
                     set_key = f"set_{intent_set_index + 1}"
@@ -639,13 +644,17 @@ def main():
                         with open(step3_full_path, encoding="utf-8") as f:
                             step3_template = f.read()
 
-                        # Create example intent-food pairs (like step3_generate_final_queries does)
+                        # Create example intent-food pairs
+                        # (like step3_generate_final_queries does)
                         sample_matches = all_matches["matches"][
                             :3
                         ]  # First 3 matches for example
                         intent_food_pairs = ""
                         for i, match in enumerate(sample_matches, 1):
-                            food_info = f"{match['consumable_name']} (ID: {match['consumable_id']})"
+                            food_info = (
+                                f"{match['consumable_name']} "
+                                f"(ID: {match['consumable_id']})"
+                            )
                             if args.dietary_flag:
                                 food_row = food_df[
                                     food_df["consumable_id"] == match["consumable_id"]
@@ -665,7 +674,8 @@ def main():
                                     ]
                                     if dietary_info:
                                         food_info += f" [{', '.join(dietary_info)}]"
-                            intent_food_pairs += f'\n{i}. Intent: "{match["intent"]}"\n   Food: {food_info}\n'
+                            intent_food_pairs += f'\n{i}. Intent: "{match["intent"]}"'
+                            intent_food_pairs += f"\n   Food: {food_info}\n"
 
                         step3_processed_prompt = step3_template.format(
                             intent_food_pairs=intent_food_pairs,
@@ -824,7 +834,8 @@ def main():
 
             print(f"✅ MLflow run completed: {run.info.run_id}")
             print(
-                f"📊 View results: mlflow ui --backend-store-uri file://{mlflow.get_tracking_uri().replace('file://', '')}"
+                f"📊 View results: mlflow ui --backend-store-uri file://"
+                f"{mlflow.get_tracking_uri().replace('file://', '')}"
             )
 
         except Exception as e:

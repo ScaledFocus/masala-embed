@@ -32,11 +32,17 @@ class GeneratedQuery(BaseModel):
     """Schema for a single generated query with dimensions."""
 
     query: str = Field(
-        description="Natural language search query like 'paneer tika delivry', 'cheap vegan dinner near me', or 'quick breakfast under $10'. Include realistic imperfections like typos, casual language, and varied vocabulary."
+        description="Natural language search query like 'paneer tika delivry', "
+        "'cheap vegan dinner near me', or 'quick breakfast under $10'. "
+        "Include realistic imperfections like typos, casual language, and "
+        "varied vocabulary."
     )
     dimensions: dict[str, str] = Field(
         default_factory=dict,
-        description="Query attributes as key-value pairs. Examples: {'price': 'cheap', 'location': 'near me'}, {'cuisine': 'Indian', 'urgency': 'fast delivery'}, {'dietary_restrictions': 'Vegetarian', 'meal_type': 'Starters'}",
+        description="Query attributes as key-value pairs. Examples: "
+        "{'price': 'cheap', 'location': 'near me'}, "
+        "{'cuisine': 'Indian', 'urgency': 'fast delivery'}, "
+        "{'dietary_restrictions': 'Vegetarian', 'meal_type': 'Starters'}",
     )
 
 
@@ -48,7 +54,8 @@ class CandidateQueries(BaseModel):
         description="Candidate food name (e.g., 'Paneer Tikka', 'Braised Tofu')"
     )
     queries: list[GeneratedQuery] = Field(
-        description="List of generated queries for this candidate, varying from simple to complex with different dimensions"
+        description="List of generated queries for this candidate, varying from "
+        "simple to complex with different dimensions"
     )
 
 
@@ -56,7 +63,8 @@ class QueryGenerationOutput(BaseModel):
     """Schema for the complete output."""
 
     candidates: list[CandidateQueries] = Field(
-        description="List of food candidates, each with multiple realistic search queries covering different complexity levels and user scenarios"
+        description="List of food candidates, each with multiple realistic search "
+        "queries covering different complexity levels and user scenarios"
     )
 
 
@@ -110,12 +118,12 @@ def convert_output_to_dataframe(output: QueryGenerationOutput):
         - Individual dimension columns (dim_cuisine, dim_price, etc.)
     """
     # Import constants for standardized dimension columns
-    from src.constants import FOOD_QUERY_DIMENSIONS
+    # from src.constants import FOOD_QUERY_DIMENSIONS
 
     rows = []
 
     # Use standardized dimension keys from constants instead of output
-    dimension_columns = sorted(list(FOOD_QUERY_DIMENSIONS.keys()))
+    # dimension_columns = sorted(list(FOOD_QUERY_DIMENSIONS.keys()))
 
     # Process each candidate and query
     for candidate in output.candidates:

@@ -2,7 +2,8 @@
 """
 Synthetic Data Migration Script
 
-This script migrates approved synthetic query data from MLflow experiments to the database.
+This script migrates approved synthetic query data from MLflow experiments to the
+database.
 It handles the complete flow:
 1. Query MLflow for approved runs (data_status = "approved")
 2. Download and process CSV data
@@ -76,7 +77,8 @@ def get_approved_runs(experiment_name: str = None, run_id: str = None) -> list[d
         )
     else:
         # Get all approved runs across experiments
-        # Note: MLflow's global tag search doesn't work reliably, so we search each experiment
+        # Note: MLflow's global tag search doesn't work reliably, so we search
+        # each experiment
         logger.info("Searching for approved runs across all experiments...")
         client = mlflow.tracking.MlflowClient()
         experiments = client.search_experiments()
@@ -93,7 +95,8 @@ def get_approved_runs(experiment_name: str = None, run_id: str = None) -> list[d
 
             if exp_runs:
                 logger.info(
-                    f"Found {len(exp_runs)} approved runs in experiment: {experiment.name}"
+                    f"Found {len(exp_runs)} approved runs in experiment: "
+                    f"{experiment.name}"
                 )
                 runs.extend(exp_runs)
 
@@ -223,7 +226,8 @@ def process_enhanced_json_data(
     existing_ids, missing_ids = validate_consumables_exist(df)
     if missing_ids:
         logger.warning(
-            f"Missing consumables: {missing_ids[:5]}{'...' if len(missing_ids) > 5 else ''}"
+            f"Missing consumables: {missing_ids[:5]}"
+            f"{'...' if len(missing_ids) > 5 else ''}"
         )
         # Filter out missing consumables
         df = df[df["consumable_id"].isin(existing_ids)].copy()
@@ -274,7 +278,8 @@ def process_enhanced_json_data(
                 # Insert query
                 cursor.execute(
                     """
-                    INSERT INTO query (query_content, query_filters, data_gen_hash, mlflow_run_id)
+                    INSERT INTO query (query_content, query_filters, data_gen_hash,
+                                     mlflow_run_id)
                     VALUES (%s, %s, %s, %s)
                     RETURNING id
                     """,
@@ -311,7 +316,8 @@ def process_enhanced_json_data(
                     # Insert label
                     cursor.execute(
                         """
-                        INSERT INTO label (labeler_id, example_id, esci_label, auto_label_score)
+                        INSERT INTO label (labeler_id, example_id, esci_label,
+                                         auto_label_score)
                         VALUES (%s, %s, %s, %s)
                         """,
                         (
@@ -477,7 +483,8 @@ def main():
         if dry_runs:
             total_records = sum(r["records_processed"] for r in dry_runs)
             logger.info(
-                f"[DRY RUN] Would migrate {len(dry_runs)} runs with {total_records} total records"
+                f"[DRY RUN] Would migrate {len(dry_runs)} runs with "
+                f"{total_records} total records"
             )
         else:
             logger.info(f"Successfully migrated: {len(successful)} runs")
@@ -489,7 +496,8 @@ def main():
                 total_labels = sum(r["labels_inserted"] for r in successful)
 
                 logger.info(
-                    f"Total inserted: {total_queries} queries, {total_examples} examples, {total_labels} labels"
+                    f"Total inserted: {total_queries} queries, "
+                    f"{total_examples} examples, {total_labels} labels"
                 )
 
         # Show errors

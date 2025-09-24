@@ -28,11 +28,11 @@ if project_root:
     sys.path.insert(0, os.path.join(project_root, "esci-dataset"))
 
 # Import the original script functions
-from src.data_generation.dspy_schemas import (
+from src.data_generation.dspy_schemas import (  # noqa: E402
     QueryGenerator,
     setup_dspy_model,
 )
-from src.data_generation.initial_generation import (
+from src.data_generation.initial_generation import (  # noqa: E402
     generate_output_filename,
     generate_queries_with_retry,
     get_api_key,
@@ -41,10 +41,10 @@ from src.data_generation.initial_generation import (
     save_results_as_csv,
     validate_args,
 )
-from src.data_generation.initial_generation import (
+from src.data_generation.initial_generation import (  # noqa: E402
     setup_argparser as setup_original_argparser,
 )
-from src.utils import get_git_info
+from src.utils import get_git_info  # noqa: E402
 
 # Configure logging
 root_path = Path(project_root) if project_root else Path(__file__).resolve().parents[2]
@@ -79,12 +79,14 @@ def setup_mlflow(experiment_name: str) -> None:
         if experiment is None:
             experiment_id = mlflow.create_experiment(experiment_name)
             logger.info(
-                f"Created new MLflow experiment: {experiment_name} (ID: {experiment_id})"
+                f"Created new MLflow experiment: {experiment_name} "
+                f"(ID: {experiment_id})"
             )
         else:
             experiment_id = experiment.experiment_id
             logger.info(
-                f"Using existing MLflow experiment: {experiment_name} (ID: {experiment_id})"
+                f"Using existing MLflow experiment: {experiment_name} "
+                f"(ID: {experiment_id})"
             )
 
         mlflow.set_experiment(experiment_name)
@@ -634,7 +636,8 @@ def setup_argparser() -> argparse.ArgumentParser:
         "--parallel",
         type=int,
         default=1,
-        help="Number of parallel threads for batch processing (default: 1 for sequential)",
+        help="Number of parallel threads for batch processing "
+        "(default: 1 for sequential)",
     )
 
     return parser
@@ -840,7 +843,8 @@ def main():
 
             print(f"✅ MLflow run completed: {run.info.run_id}")
             print(
-                f"📊 View results: mlflow ui --backend-store-uri file://{mlflow.get_tracking_uri().replace('file://', '')}"
+                f"📊 View results: mlflow ui --backend-store-uri file://"
+                f"{mlflow.get_tracking_uri().replace('file://', '')}"
             )
             print(f"📄 Output saved to: {output_path}")
             print(f"🏷️ ESCI Label: {args.esci_label}")
