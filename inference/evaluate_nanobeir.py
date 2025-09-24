@@ -100,7 +100,10 @@ class STModel:
 
     def encode_queries(self, queries, batch_size=32, **kwargs):
         return self.model.encode(
-            queries, convert_to_numpy=True, batch_size=batch_size, show_progress_bar=False
+            queries,
+            convert_to_numpy=True,
+            batch_size=batch_size,
+            show_progress_bar=False,
         )
 
     def encode_corpus(self, corpus, batch_size=32, **kwargs):
@@ -122,7 +125,13 @@ class QwenHFEncoder:
     - Optional L2 normalization
     """
 
-    def __init__(self, hf_id: str, pooling: str = "mean", normalize: bool = True, max_len: int = 512):
+    def __init__(
+        self,
+        hf_id: str,
+        pooling: str = "mean",
+        normalize: bool = True,
+        max_len: int = 512,
+    ):
         self.torch = torch
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.pooling = pooling
@@ -220,14 +229,13 @@ def debug_one_query(corpus, queries, qrels, results, k=5):
     print(f"Query: {q_text}")
     print(
         f"Relevant doc IDs ({len(relevant)}): {sorted(list(relevant))[:10]}"
-        f"{' ...' if len(relevant)>10 else ''}"
+        f"{' ...' if len(relevant) > 10 else ''}"
     )
     print(f"\nTop-{k} retrieved:")
     for i, (did, score) in enumerate(ranked, 1):
         title = (
-            (corpus.get(did, {}).get("title") if isinstance(corpus, dict) else None)
-            or ""
-        )
+            corpus.get(did, {}).get("title") if isinstance(corpus, dict) else None
+        ) or ""
         print(f"{i:>2}. {did}  score={score:.4f}  title={title[:80]}")
     print(f"\nOverlap@{k}: {sorted(list(overlap)) if overlap else 'None'}")
     print("=====================================\n", flush=True)
