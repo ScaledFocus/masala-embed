@@ -130,7 +130,7 @@ celerybeat.pid
 output/
 output/*
 # Environments
-# .env
+.env
 .venv
 env/
 venv/
