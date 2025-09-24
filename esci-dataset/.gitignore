@@ -8,6 +8,8 @@ mlruns/*
 __pycache__/
 *.py[cod]
 *$py.class
+.claude/
+.claude/*
 data/
 # C extensions
 *.so

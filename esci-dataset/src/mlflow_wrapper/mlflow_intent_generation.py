@@ -795,9 +795,11 @@ def main():
                 if not args.stop_at_intents
                 else len(all_matches["matches"])
             )
-            unique_queries_count = len(
-                set(q["query"] for q in all_final_queries)
-            ) if all_final_queries else len(set(m["intent"] for m in all_matches["matches"]))
+            unique_queries_count = (
+                len(set(q["query"] for q in all_final_queries))
+                if all_final_queries
+                else len(set(m["intent"] for m in all_matches["matches"]))
+            )
 
             intents_count = (
                 len(intents) if intents else (len(intent_sets) if intent_sets else 0)

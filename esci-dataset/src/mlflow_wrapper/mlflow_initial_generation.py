@@ -808,7 +808,11 @@ def main():
             total_runtime = time.time() - total_start_time
             log_timing_metrics(total_runtime, batch_times)
             log_success_metrics(
-                total_candidates, total_examples, total_queries, successful_batches, failed_batches
+                total_candidates,
+                total_examples,
+                total_queries,
+                successful_batches,
+                failed_batches,
             )
 
             # Handle failures
