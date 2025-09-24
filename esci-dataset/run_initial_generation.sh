@@ -18,7 +18,7 @@ DIETARY_FLAG=""
 OUTPUT_PATH=""
 TEMPLATE_PATH=""
 QUERY_EXAMPLES=""
-EXPERIMENT_NAME="Initial Generation"
+EXPERIMENT_NAME="Initial_Generation"
 RUN_NAME=""
 
 uv run python src/mlflow_wrapper/mlflow_initial_generation.py \
