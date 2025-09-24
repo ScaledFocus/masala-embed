@@ -116,12 +116,15 @@ class STModel:
             texts, convert_to_numpy=True, batch_size=batch_size, show_progress_bar=True
         )
 
+
 class LlamaServerEncoder:
     """Client for llama.cpp --embedding server (/embedding). Ensures fixed-dim vectors."""
+
     def __init__(self, endpoint: str):
         import requests
         from requests.adapters import HTTPAdapter
         from urllib3.util.retry import Retry
+
         self.session = requests.Session()
         retry = Retry(total=3, backoff_factor=0.2, status_forcelist=(502, 503, 504))
         self.session.mount("http://", HTTPAdapter(max_retries=retry))
@@ -149,6 +152,7 @@ class LlamaServerEncoder:
                     return first_vector(obj[0])
                 return obj
             return [obj]
+
         return first_vector(js)
 
     def _to_1d_numeric(self, obj):
@@ -159,12 +163,14 @@ class LlamaServerEncoder:
                 elif isinstance(x, dict):
                     for k in ("vector", "embedding", "values", "data"):
                         if k in x:
-                            yield from flatten(x[k]); break
+                            yield from flatten(x[k])
+                            break
                     else:
                         for v in x.values():
                             yield from flatten(v)
                 else:
                     yield x
+
         vec = list(flatten(self._parse_embedding_json(obj)))
         vec = [float(x) for x in vec]
         return vec
@@ -177,13 +183,14 @@ class LlamaServerEncoder:
         if len(vec) < self._dim:
             vec = vec + [0.0] * (self._dim - len(vec))
         elif len(vec) > self._dim:
-            vec = vec[:self._dim]
+            vec = vec[: self._dim]
         return vec
 
     def _embed_one(self, text: str, timeout=60):
         orig = text
         for backoff, shrink in zip(RETRY_BACKOFF, RETRY_SHRINK):
-            if backoff: time.sleep(backoff)
+            if backoff:
+                time.sleep(backoff)
             t = orig[: int(MAX_CHARS * shrink)]
             r = self.session.post(self.endpoint, json={"content": t}, timeout=timeout)
             if r.status_code >= 500:
@@ -204,6 +211,7 @@ class LlamaServerEncoder:
         texts = [_doc_text(d) for d in docs_iter]
         return [self._embed_one(t) for t in texts]
 
+
 # ----------------- Evaluation + Debug Peek -----------------
 def debug_one_query(corpus, queries, qrels, results, k=5):
     """Print one query's relevant IDs vs. top-k retrieved IDs."""
@@ -223,10 +231,14 @@ def debug_one_query(corpus, queries, qrels, results, k=5):
     print("\n============= DEBUG PEEK =============")
     print(f"Query ID: {qid}")
     print(f"Query: {q_text}")
-    print(f"Relevant doc IDs ({len(relevant)}): {sorted(list(relevant))[:10]}{' ...' if len(relevant)>10 else ''}")
+    print(
+        f"Relevant doc IDs ({len(relevant)}): {sorted(list(relevant))[:10]}{' ...' if len(relevant) > 10 else ''}"
+    )
     print("\nTop-{} retrieved:".format(k))
     for i, (did, score) in enumerate(ranked, 1):
-        title = (corpus.get(did, {}).get('title') if isinstance(corpus, dict) else None) or ""
+        title = (
+            corpus.get(did, {}).get("title") if isinstance(corpus, dict) else None
+        ) or ""
         print(f"{i:>2}. {did}  score={score:.4f}  title={title[:80]}")
     print(f"\nOverlap@{k}: {sorted(list(overlap)) if overlap else 'None'}")
     print("=====================================\n", flush=True)
