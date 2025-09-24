@@ -12,6 +12,7 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -50,12 +51,17 @@ from src.data_generation.dspy_schemas import (
 from src.utils import get_git_info
 
 # Configure logging
+log_dir = Path(project_root) / "logs" if project_root else Path.cwd() / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
+log_suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
+log_file_path = log_dir / f"mlflow_initial_generation_{log_suffix}.log"
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("mlflow_initial_generation.log"),
+        logging.FileHandler(log_file_path),
     ],
 )
 logger = logging.getLogger(__name__)
@@ -99,6 +105,7 @@ def log_parameters(args: argparse.Namespace, template_path: str, query_examples_
     mlflow.log_param("queries_per_item", args.queries_per_item)
     mlflow.log_param("max_retries", args.max_retries)
     mlflow.log_param("start_idx", args.start_idx)
+    mlflow.log_param("parallel_threads", args.parallel)
 
     # Log paths
     mlflow.log_param("template_path", template_path)
@@ -375,6 +382,200 @@ def process_in_batches_with_tracking(
     return {"candidates": all_candidates}, batch_details, batch_failures, batch_times, processed_prompts
 
 
+def process_single_batch_for_parallel(
+    batch_data: Dict,
+    args: argparse.Namespace,
+    template_path: str,
+    query_examples_path: str,
+    dietary_columns: list[str] = None,
+) -> Tuple[Dict, Dict, float]:
+    """Process a single batch for parallel execution."""
+    batch_idx = batch_data["batch_idx"]
+    batch_df = batch_data["batch_df"]
+
+    batch_start_time = time.time()
+
+    logger.info(
+        f"Processing batch {batch_idx + 1} (parallel) - {len(batch_df)} records"
+    )
+
+    batch_detail = {
+        "batch_number": batch_idx + 1,
+        "start_index": batch_data["start_idx"],
+        "end_index": batch_data["end_idx"],
+        "records_count": len(batch_df),
+        "start_time": datetime.now().isoformat(),
+    }
+
+    try:
+        # Prepare prompt for this batch
+        from src.data_generation.prompt_template import prepare_prompt
+
+        prompt = prepare_prompt(
+            template_path=template_path,
+            df=batch_df,
+            esci_label=args.esci_label,
+            batch_size=len(batch_df),
+            include_dietary=args.dietary_flag,
+            queries_per_item=args.queries_per_item,
+            query_examples_path=query_examples_path,
+            dietary_columns=dietary_columns,
+        )
+
+        batch_detail["prompt_length"] = len(prompt)
+
+        # Create a new generator instance for this thread
+        generator = QueryGenerator()
+
+        # Generate queries for this batch
+        structured_output = generate_queries_with_retry(
+            generator, prompt, args.esci_label, args.max_retries, batch_idx + 1
+        )
+
+        # Extract candidates from structured output
+        batch_candidates = structured_output.model_dump().get("candidates", [])
+
+        # Calculate metrics for this batch
+        total_queries = sum(
+            len(candidate.get("queries", [])) for candidate in batch_candidates
+        )
+
+        batch_time = time.time() - batch_start_time
+
+        batch_detail.update({
+            "status": "success",
+            "candidates_generated": len(batch_candidates),
+            "queries_generated": total_queries,
+            "execution_time_seconds": batch_time,
+            "end_time": datetime.now().isoformat(),
+        })
+
+        logger.info(
+            f"Batch {batch_idx + 1} completed: {len(batch_candidates)} "
+            f"candidates, {total_queries} queries generated in {batch_time:.2f}s"
+        )
+
+        return {
+            "candidates": batch_candidates,
+            "batch_detail": batch_detail,
+            "batch_time": batch_time,
+            "processed_prompt": {
+                f"batch_{batch_idx + 1}": {
+                    "batch_number": batch_idx + 1,
+                    "prompt": prompt,
+                    "prompt_length": len(prompt),
+                    "records_count": len(batch_df)
+                }
+            }
+        }
+
+    except Exception as e:
+        batch_time = time.time() - batch_start_time
+
+        batch_detail.update({
+            "status": "failed",
+            "error": str(e),
+            "execution_time_seconds": batch_time,
+            "end_time": datetime.now().isoformat(),
+        })
+
+        batch_failure = {
+            "batch_number": batch_idx + 1,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat(),
+            "start_index": batch_data["start_idx"],
+            "end_index": batch_data["end_idx"],
+            "records_count": len(batch_df),
+        }
+
+        logger.error(f"Batch {batch_idx + 1} failed: {e}")
+
+        return {
+            "candidates": [],
+            "batch_detail": batch_detail,
+            "batch_time": batch_time,
+            "batch_failure": batch_failure,
+            "processed_prompt": {}
+        }
+
+
+def process_in_batches_parallel(
+    df: pd.DataFrame,
+    args: argparse.Namespace,
+    generator: QueryGenerator,
+    template_path: str,
+    query_examples_path: str,
+    output_dir: str,
+    dietary_columns: list[str] = None,
+) -> Tuple[dict, List[Dict], List[Dict], List[float], Dict]:
+    """Enhanced batch processing with parallel execution using dspy.Parallel."""
+    all_candidates = []
+    batch_details = []
+    batch_failures = []
+    batch_times = []
+    processed_prompts = {}
+
+    total_batches = (len(df) + args.batch_size - 1) // args.batch_size
+
+    logger.info(
+        f"Processing {len(df)} records in {total_batches} batches of "
+        f"size {args.batch_size} using {args.parallel} parallel threads"
+    )
+
+    # Prepare batch data for parallel processing
+    batch_data_list = []
+    for batch_idx in range(total_batches):
+        start_idx = batch_idx * args.batch_size
+        end_idx = min(start_idx + args.batch_size, len(df))
+        batch_df = df.iloc[start_idx:end_idx].copy()
+
+        batch_data_list.append({
+            "batch_idx": batch_idx,
+            "batch_df": batch_df,
+            "start_idx": start_idx,
+            "end_idx": end_idx,
+        })
+
+    # Execute batches in parallel using concurrent.futures for better control
+    from concurrent.futures import ThreadPoolExecutor
+    import functools
+
+    logger.info(f"Starting parallel execution with {args.parallel} threads...")
+
+    # Create a partial function with fixed arguments
+    partial_func = functools.partial(
+        process_single_batch_for_parallel,
+        args=args,
+        template_path=template_path,
+        query_examples_path=query_examples_path,
+        dietary_columns=dietary_columns
+    )
+
+    # Execute batches in parallel using ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=args.parallel) as executor:
+        results = list(executor.map(partial_func, batch_data_list))
+
+    # Process results and aggregate data
+    for result in results:
+        # Add candidates
+        all_candidates.extend(result["candidates"])
+
+        # Add batch details
+        batch_details.append(result["batch_detail"])
+
+        # Add batch times
+        batch_times.append(result["batch_time"])
+
+        # Add failures if any
+        if "batch_failure" in result:
+            batch_failures.append(result["batch_failure"])
+
+        # Add processed prompts
+        processed_prompts.update(result["processed_prompt"])
+
+    return {"candidates": all_candidates}, batch_details, batch_failures, batch_times, processed_prompts
+
+
 def setup_argparser() -> argparse.ArgumentParser:
     """Setup command line argument parser with MLflow additions."""
     # Get the original parser
@@ -391,6 +592,12 @@ def setup_argparser() -> argparse.ArgumentParser:
         default=None,
         help="MLflow run name (auto-generated if not provided)"
     )
+    parser.add_argument(
+        "--parallel",
+        type=int,
+        default=1,
+        help="Number of parallel threads for batch processing (default: 1 for sequential)"
+    )
 
     return parser
 
@@ -402,6 +609,12 @@ def main():
 
     # Validate arguments using original validation
     validate_args(args)
+
+    # Additional validation for parallel processing
+    if args.parallel < 1:
+        raise ValueError("--parallel must be >= 1")
+    if args.parallel > 32:  # Reasonable upper limit
+        raise ValueError("--parallel must be <= 32 (too many threads can hurt performance)")
 
     # Generate default experiment name based on ESCI label
     experiment_name = args.experiment_name or f"initial-generation-{args.esci_label}"
@@ -425,6 +638,13 @@ def main():
         mlflow.set_tag("model", args.model)
         mlflow.set_tag(f"batch-{args.batch_size}", "true")
         mlflow.set_tag(f"limit-{args.limit}", "true")
+        mlflow.set_tag(f"parallel-{args.parallel}", "true")
+
+        # Add processing mode tag
+        if args.parallel > 1:
+            mlflow.set_tag("processing_mode", "parallel")
+        else:
+            mlflow.set_tag("processing_mode", "sequential")
 
         # Add resume/restart tracking
         if args.start_idx > 0:
@@ -477,10 +697,17 @@ def main():
             log_template_content_as_artifact(template_path)
             log_query_examples_as_artifact(query_examples_path)
 
-            # Process data in batches with enhanced tracking
-            output_dict, batch_details, batch_failures, batch_times, processed_prompts = process_in_batches_with_tracking(
-                df, args, generator, template_path, query_examples_path, output_dir, dietary_columns
-            )
+            # Choose processing method based on parallel flag
+            if args.parallel > 1:
+                # Use parallel processing
+                output_dict, batch_details, batch_failures, batch_times, processed_prompts = process_in_batches_parallel(
+                    df, args, generator, template_path, query_examples_path, output_dir, dietary_columns
+                )
+            else:
+                # Use sequential processing
+                output_dict, batch_details, batch_failures, batch_times, processed_prompts = process_in_batches_with_tracking(
+                    df, args, generator, template_path, query_examples_path, output_dir, dietary_columns
+                )
 
             # Calculate metrics
             total_candidates = len(output_dict.get("candidates", []))

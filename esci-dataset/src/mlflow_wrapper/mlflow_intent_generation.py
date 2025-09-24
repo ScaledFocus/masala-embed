@@ -12,7 +12,9 @@ import logging
 import os
 import subprocess
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List
@@ -97,6 +99,7 @@ def log_parameters(args: argparse.Namespace, prompt_versions: Dict[str, str], in
     mlflow.log_param("start_idx", args.start_idx)
     mlflow.log_param("use_intent_sets", args.use_intent_sets or "false")
     mlflow.log_param("intent_set_rotation", args.intent_set_rotation)
+    mlflow.log_param("parallel_threads", args.parallel)
 
     # Log derived parameters
     mlflow.log_param("prompt_versions_used", json.dumps(prompt_versions))
@@ -242,8 +245,55 @@ def setup_argparser() -> argparse.ArgumentParser:
     # MLflow-specific arguments
     parser.add_argument("--experiment-name", default="intent-generation", help="MLflow experiment name")
     parser.add_argument("--run-name", default=None, help="MLflow run name (auto-generated if not provided)")
+    parser.add_argument(
+        "--parallel",
+        type=int,
+        default=1,
+        help="Number of parallel threads for batch processing (default: 1 for sequential)"
+    )
 
     return parser
+
+
+def process_step2_batch_parallel(batch_data, current_intents, args):
+    """Process a single batch for Step 2 intent matching in parallel."""
+    batch_idx = batch_data["batch_idx"]
+    batch_df = batch_data["batch_df"]
+
+    logger.info(f"Processing Step 2 batch {batch_idx + 1} (parallel) - {len(batch_df)} records")
+
+    # Smart matching for this batch
+    batch_matches = step2_match_intents_to_foods(
+        current_intents, batch_df, args.dietary_flag, args.step2_prompt
+    )
+
+    return {
+        "batch_idx": batch_idx,
+        "matches": batch_matches["matches"]
+    }
+
+
+def process_step3_batch_parallel(batch_data, batch_matches_data, args, dietary_columns):
+    """Process a single batch for Step 3 query generation in parallel."""
+    batch_idx = batch_data["batch_idx"]
+    batch_df = batch_data["batch_df"]
+
+    logger.info(f"Processing Step 3 batch {batch_idx + 1} (parallel) - {len(batch_df)} records")
+
+    # Get matches for this batch
+    batch_matches = {
+        "matches": batch_matches_data["matches"]
+    }
+
+    batch_queries = step3_generate_final_queries(
+        batch_matches, batch_df, args.queries_per_item, args.dietary_flag,
+        dietary_columns, args.step3_prompt
+    )
+
+    return {
+        "batch_idx": batch_idx,
+        "queries": batch_queries
+    }
 
 
 def main():
@@ -258,6 +308,12 @@ def main():
     # Validate intent set rotation parameters
     if args.intent_set_rotation < 1:
         raise ValueError("intent_set_rotation must be at least 1")
+
+    # Additional validation for parallel processing
+    if args.parallel < 1:
+        raise ValueError("--parallel must be >= 1")
+    if args.parallel > 32:  # Reasonable upper limit
+        raise ValueError("--parallel must be <= 32 (too many threads can hurt performance)")
 
     if args.use_intent_sets:
         intent_sets_full_path = os.path.join(project_root, args.use_intent_sets)
@@ -283,6 +339,13 @@ def main():
         mlflow.set_tag(f"{args.num_intents}-intents", "true")
         mlflow.set_tag(f"batch-{args.batch_size}", "true")
         mlflow.set_tag(f"limit-{args.limit}", "true")
+        mlflow.set_tag(f"parallel-{args.parallel}", "true")
+
+        # Add processing mode tag
+        if args.parallel > 1:
+            mlflow.set_tag("processing_mode", "parallel")
+        else:
+            mlflow.set_tag("processing_mode", "sequential")
 
         # Add resume/restart tracking
         if args.start_idx > 0:
@@ -388,10 +451,13 @@ def main():
                 except (FileNotFoundError, Exception) as e:
                     processed_prompts["step2"] = f"Error processing step2 prompt: {e}"
 
+            # Prepare batch data for parallel processing
+            batch_data_list = []
+            batch_intents_list = []
             for batch_idx in range(total_batches):
                 start_idx = batch_idx * args.batch_size
                 end_idx = min(start_idx + args.batch_size, len(food_df))
-                batch_df = food_df.iloc[start_idx:end_idx]
+                batch_df = food_df.iloc[start_idx:end_idx].copy()
 
                 # Determine which intents to use for this batch
                 if intent_sets:
@@ -409,9 +475,36 @@ def main():
                     # Use single generated intents (original behavior)
                     current_intents = intents
 
-                # Smart matching for this batch
-                batch_matches = step2_match_intents_to_foods(current_intents, batch_df, args.dietary_flag, args.step2_prompt)
-                all_matches["matches"].extend(batch_matches["matches"])
+                batch_data_list.append({
+                    "batch_idx": batch_idx,
+                    "batch_df": batch_df,
+                    "start_idx": start_idx,
+                    "end_idx": end_idx,
+                })
+                batch_intents_list.append(current_intents)
+
+            # Process Step 2 batches (sequential or parallel)
+            if args.parallel > 1:
+                logger.info(f"Processing Step 2 with {args.parallel} parallel threads...")
+                import functools
+
+                # Execute in parallel
+                with ThreadPoolExecutor(max_workers=args.parallel) as executor:
+                    step2_tasks = [(batch_data, intents, args) for batch_data, intents in zip(batch_data_list, batch_intents_list)]
+                    step2_results = list(executor.map(lambda x: process_step2_batch_parallel(x[0], x[1], x[2]), step2_tasks))
+
+                # Aggregate Step 2 results
+                for result in step2_results:
+                    all_matches["matches"].extend(result["matches"])
+            else:
+                # Sequential processing (original behavior)
+                for batch_data, current_intents in zip(batch_data_list, batch_intents_list):
+                    batch_idx = batch_data["batch_idx"]
+                    batch_df = batch_data["batch_df"]
+
+                    # Smart matching for this batch (original sequential code)
+                    batch_matches = step2_match_intents_to_foods(current_intents, batch_df, args.dietary_flag, args.step2_prompt)
+                    all_matches["matches"].extend(batch_matches["matches"])
 
             step2_time = time.time() - step2_start
             log_step_metrics(2, step2_time, successful_matches=len(all_matches["matches"]))
@@ -451,20 +544,40 @@ def main():
                     except (FileNotFoundError, Exception) as e:
                         processed_prompts["step3"] = f"Error processing step3 prompt: {e}"
 
+                # Prepare batch matches data for Step 3 processing
+                batch_matches_list = []
                 for batch_idx in range(total_batches):
                     start_idx = batch_idx * args.batch_size
                     end_idx = min(start_idx + args.batch_size, len(food_df))
-                    batch_df = food_df.iloc[start_idx:end_idx]
 
                     # Get matches for this batch
                     batch_matches = {
                         "matches": all_matches["matches"][start_idx:end_idx]
                     }
+                    batch_matches_list.append(batch_matches)
 
-                    batch_queries = step3_generate_final_queries(
-                        batch_matches, batch_df, args.queries_per_item, args.dietary_flag, dietary_columns, args.step3_prompt
-                    )
-                    all_final_queries.extend(batch_queries)
+                # Process Step 3 batches (sequential or parallel)
+                if args.parallel > 1:
+                    logger.info(f"Processing Step 3 with {args.parallel} parallel threads...")
+                    import functools
+
+                    # Execute in parallel
+                    with ThreadPoolExecutor(max_workers=args.parallel) as executor:
+                        step3_tasks = [(batch_data, batch_matches, args, dietary_columns) for batch_data, batch_matches in zip(batch_data_list, batch_matches_list)]
+                        step3_results = list(executor.map(lambda x: process_step3_batch_parallel(x[0], x[1], x[2], x[3]), step3_tasks))
+
+                    # Aggregate Step 3 results
+                    for result in step3_results:
+                        all_final_queries.extend(result["queries"])
+                else:
+                    # Sequential processing (original behavior)
+                    for batch_data, batch_matches in zip(batch_data_list, batch_matches_list):
+                        batch_df = batch_data["batch_df"]
+
+                        batch_queries = step3_generate_final_queries(
+                            batch_matches, batch_df, args.queries_per_item, args.dietary_flag, dietary_columns, args.step3_prompt
+                        )
+                        all_final_queries.extend(batch_queries)
 
                 step3_time = time.time() - step3_start
                 log_step_metrics(3, step3_time, total_queries_generated=len(all_final_queries))
