@@ -4,13 +4,13 @@
 # Edit the defaults below, then run: ./run_intent_generation.sh
 
 # Default parameters (edit these as needed)
-MODEL="gpt-5-mini"
+MODEL="gpt-5"
 NUM_INTENTS=50
-LIMIT=2000
+LIMIT=1000
 BATCH_SIZE=50
 QUERIES_PER_ITEM=2
-STOP_AT_INTENTS=1
-PARALLEL=10
+STOP_AT_INTENTS=""
+PARALLEL=15
 DIETARY_FLAG=""
 TEMPERATURE=1.0
 OUTPUT_DIR="output"
@@ -21,7 +21,7 @@ STEP2_PROMPT=""
 STEP3_PROMPT=""
 USE_INTENT_SETS="intent_sets"
 INTENT_SET_ROTATION=1
-START_IDX=22000
+START_IDX=9000
 
 uv run python src/mlflow_wrapper/mlflow_intent_generation.py \
 	--model $MODEL \

@@ -13,6 +13,7 @@ help:
 	@echo "  make format-check                   - Check code formatting without changes"
 	@echo "  make ruff-check                     - Check code for linting issues"
 	@echo "  make check-fix                      - Check and auto-fix linting issues"
+	@echo "  make summary                        - Generate MLflow runs summary CSV"
 	@echo "  make help                           - Show this help message"
 	@echo ""
 	@echo "Examples:"
@@ -116,3 +117,6 @@ ruff-check:
 
 check-fix:
 	cd /Users/luvsuneja/Documents/repos/masala-embed && uv run ruff check --fix
+
+summary:
+	uv run python scripts/mlflow_runs_summary.py --output-dir output

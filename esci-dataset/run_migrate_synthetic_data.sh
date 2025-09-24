@@ -7,8 +7,8 @@
 EXPERIMENT_NAME=""
 RUN_ID=""
 ALL_APPROVED=1
-DRY_RUN=1
-CONFIRM=""
+DRY_RUN=""
+CONFIRM="1"
 
 uv run python database/scripts/migrate_synthetic_data.py \
 	$(if [ -n "$EXPERIMENT_NAME" ]; then echo "--experiment-name $EXPERIMENT_NAME"; fi) \
