@@ -151,6 +151,7 @@ def log_final_metrics(
     intents_count: int,
     matches_count: int,
     queries_count: int,
+    unique_queries_count: int,
     intent_set_usage: dict[str, int] = None,
 ) -> None:
     """Log final summary metrics."""
@@ -160,6 +161,7 @@ def log_final_metrics(
     mlflow.log_metric("intents_generated", intents_count)
     mlflow.log_metric("successful_matches", matches_count)
     mlflow.log_metric("total_queries_generated", queries_count)
+    mlflow.log_metric("unique_queries_generated", unique_queries_count)
 
     # Log intent set usage metrics
     if intent_set_usage:
@@ -793,6 +795,9 @@ def main():
                 if not args.stop_at_intents
                 else len(all_matches["matches"])
             )
+            unique_queries_count = len(
+                set(q["query"] for q in all_final_queries)
+            ) if all_final_queries else len(set(m["intent"] for m in all_matches["matches"]))
 
             intents_count = (
                 len(intents) if intents else (len(intent_sets) if intent_sets else 0)
@@ -804,6 +809,7 @@ def main():
                 intents_count,
                 len(all_matches["matches"]),
                 queries_count,
+                unique_queries_count,
                 intent_set_usage,
             )
 
