@@ -9,6 +9,10 @@ help:
 	@echo "  make generate-queries                - Generate food delivery queries using AI"
 	@echo "  make approve-runs RUNS=<run_ids>     - Approve MLflow runs for migration"
 	@echo "  make migrate-data [EXPERIMENT=<name>]- Migrate approved synthetic data to database"
+	@echo "  make format                         - Format Python code with ruff"
+	@echo "  make format-check                   - Check code formatting without changes"
+	@echo "  make ruff-check                     - Check code for linting issues"
+	@echo "  make check-fix                      - Check and auto-fix linting issues"
 	@echo "  make help                           - Show this help message"
 	@echo ""
 	@echo "Examples:"
@@ -100,3 +104,15 @@ migrate-data:
 
 hash:
 	git rev-parse --short HEAD
+
+format:
+	cd /Users/luvsuneja/Documents/repos/masala-embed && uv run ruff format
+
+format-check:
+	cd /Users/luvsuneja/Documents/repos/masala-embed && uv run ruff format --check --exclude "*.ipynb"
+
+ruff-check:
+	cd /Users/luvsuneja/Documents/repos/masala-embed && uv run ruff check --exclude "*.ipynb"
+
+check-fix:
+	cd /Users/luvsuneja/Documents/repos/masala-embed && uv run ruff check --fix
