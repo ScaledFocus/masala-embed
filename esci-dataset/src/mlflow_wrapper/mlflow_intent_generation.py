@@ -59,12 +59,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-
-
 def setup_mlflow(experiment_name: str = "intent-generation") -> None:
     """Setup MLflow tracking."""
     # Set tracking URI to local mlruns directory
-    mlflow_tracking_uri = os.path.join(project_root, "mlruns") if project_root else "./mlruns"
+    mlflow_tracking_uri = (
+        os.path.join(project_root, "mlruns") if project_root else "./mlruns"
+    )
     mlflow.set_tracking_uri(f"file://{mlflow_tracking_uri}")
 
     # Set or create experiment
@@ -72,10 +72,14 @@ def setup_mlflow(experiment_name: str = "intent-generation") -> None:
         experiment = mlflow.get_experiment_by_name(experiment_name)
         if experiment is None:
             experiment_id = mlflow.create_experiment(experiment_name)
-            logger.info(f"Created new MLflow experiment: {experiment_name} (ID: {experiment_id})")
+            logger.info(
+                f"Created new MLflow experiment: {experiment_name} (ID: {experiment_id})"
+            )
         else:
             experiment_id = experiment.experiment_id
-            logger.info(f"Using existing MLflow experiment: {experiment_name} (ID: {experiment_id})")
+            logger.info(
+                f"Using existing MLflow experiment: {experiment_name} (ID: {experiment_id})"
+            )
 
         mlflow.set_experiment(experiment_name)
     except Exception as e:
@@ -83,7 +87,11 @@ def setup_mlflow(experiment_name: str = "intent-generation") -> None:
         raise
 
 
-def log_parameters(args: argparse.Namespace, prompt_versions: dict[str, str], intent_set_usage: dict[str, int] = None) -> None:
+def log_parameters(
+    args: argparse.Namespace,
+    prompt_versions: dict[str, str],
+    intent_set_usage: dict[str, int] = None,
+) -> None:
     """Log all parameters to MLflow."""
     # Log all CLI arguments
     mlflow.log_param("script_name", "intent_generation_approach.py")
@@ -134,9 +142,15 @@ def log_step_metrics(step: int, execution_time: float, **kwargs) -> None:
         mlflow.log_metric(key, value)
 
 
-def log_final_metrics(total_time: float, steps_executed: int, stopped_at_intents: bool,
-                     intents_count: int, matches_count: int, queries_count: int,
-                     intent_set_usage: dict[str, int] = None) -> None:
+def log_final_metrics(
+    total_time: float,
+    steps_executed: int,
+    stopped_at_intents: bool,
+    intents_count: int,
+    matches_count: int,
+    queries_count: int,
+    intent_set_usage: dict[str, int] = None,
+) -> None:
     """Log final summary metrics."""
     mlflow.log_metric("total_runtime_seconds", total_time)
     mlflow.log_metric("steps_executed", steps_executed)
@@ -163,7 +177,9 @@ def log_artifacts(output_paths: dict[str, str]) -> None:
                 logger.warning(f"Failed to log artifact {artifact_name}: {e}")
 
 
-def save_processed_prompts(processed_prompts: dict[str, str], output_dir: str) -> list[str]:
+def save_processed_prompts(
+    processed_prompts: dict[str, str], output_dir: str
+) -> list[str]:
     """Save processed prompts as separate TXT files."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     saved_files = []
@@ -212,21 +228,62 @@ def generate_run_name(args: argparse.Namespace) -> str:
 
 def setup_argparser() -> argparse.ArgumentParser:
     """Setup command line argument parser with MLflow additions."""
-    parser = argparse.ArgumentParser(description="MLflow-wrapped intent-driven query generation")
+    parser = argparse.ArgumentParser(
+        description="MLflow-wrapped intent-driven query generation"
+    )
 
     # Original script arguments
     parser.add_argument("--model", default="gpt-5-mini", help="OpenAI model to use")
-    parser.add_argument("--num-intents", type=int, default=50, help="Number of intents to generate")
-    parser.add_argument("--limit", type=int, default=None, help="Limit number of food items")
-    parser.add_argument("--batch-size", type=int, default=10, help="Number of foods to process per batch")
-    parser.add_argument("--queries-per-item", type=int, default=3, help="Number of queries to generate per food item")
-    parser.add_argument("--stop-at-intents", action="store_true", help="Stop after step 2 (intent matching)")
-    parser.add_argument("--dietary_flag", action="store_true", help="Include dietary columns in the output")
-    parser.add_argument("--temperature", type=float, default=1.0, help="Temperature for model generation")
+    parser.add_argument(
+        "--num-intents", type=int, default=50, help="Number of intents to generate"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Limit number of food items"
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=10,
+        help="Number of foods to process per batch",
+    )
+    parser.add_argument(
+        "--queries-per-item",
+        type=int,
+        default=3,
+        help="Number of queries to generate per food item",
+    )
+    parser.add_argument(
+        "--stop-at-intents",
+        action="store_true",
+        help="Stop after step 2 (intent matching)",
+    )
+    parser.add_argument(
+        "--dietary_flag",
+        action="store_true",
+        help="Include dietary columns in the output",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=1.0,
+        help="Temperature for model generation",
+    )
     parser.add_argument("--output-dir", default="output", help="Output directory")
-    parser.add_argument("--step1-prompt", default=None, help="Path to step1 intent generation prompt (relative to project root)")
-    parser.add_argument("--step2-prompt", default=None, help="Path to step2 intent matching prompt (relative to project root)")
-    parser.add_argument("--step3-prompt", default=None, help="Path to step3 query generation prompt (relative to project root)")
+    parser.add_argument(
+        "--step1-prompt",
+        default=None,
+        help="Path to step1 intent generation prompt (relative to project root)",
+    )
+    parser.add_argument(
+        "--step2-prompt",
+        default=None,
+        help="Path to step2 intent matching prompt (relative to project root)",
+    )
+    parser.add_argument(
+        "--step3-prompt",
+        default=None,
+        help="Path to step3 query generation prompt (relative to project root)",
+    )
     parser.add_argument(
         "--start_idx",
         type=int,
@@ -246,13 +303,19 @@ def setup_argparser() -> argparse.ArgumentParser:
     )
 
     # MLflow-specific arguments
-    parser.add_argument("--experiment-name", default="intent-generation", help="MLflow experiment name")
-    parser.add_argument("--run-name", default=None, help="MLflow run name (auto-generated if not provided)")
+    parser.add_argument(
+        "--experiment-name", default="intent-generation", help="MLflow experiment name"
+    )
+    parser.add_argument(
+        "--run-name",
+        default=None,
+        help="MLflow run name (auto-generated if not provided)",
+    )
     parser.add_argument(
         "--parallel",
         type=int,
         default=1,
-        help="Number of parallel threads for batch processing (default: 1 for sequential)"
+        help="Number of parallel threads for batch processing (default: 1 for sequential)",
     )
 
     return parser
@@ -263,17 +326,16 @@ def process_step2_batch_parallel(batch_data, current_intents, args):
     batch_idx = batch_data["batch_idx"]
     batch_df = batch_data["batch_df"]
 
-    logger.info(f"Processing Step 2 batch {batch_idx + 1} (parallel) - {len(batch_df)} records")
+    logger.info(
+        f"Processing Step 2 batch {batch_idx + 1} (parallel) - {len(batch_df)} records"
+    )
 
     # Smart matching for this batch
     batch_matches = step2_match_intents_to_foods(
         current_intents, batch_df, args.dietary_flag, args.step2_prompt
     )
 
-    return {
-        "batch_idx": batch_idx,
-        "matches": batch_matches["matches"]
-    }
+    return {"batch_idx": batch_idx, "matches": batch_matches["matches"]}
 
 
 def process_step3_batch_parallel(batch_data, batch_matches_data, args, dietary_columns):
@@ -281,22 +343,23 @@ def process_step3_batch_parallel(batch_data, batch_matches_data, args, dietary_c
     batch_idx = batch_data["batch_idx"]
     batch_df = batch_data["batch_df"]
 
-    logger.info(f"Processing Step 3 batch {batch_idx + 1} (parallel) - {len(batch_df)} records")
-
-    # Get matches for this batch
-    batch_matches = {
-        "matches": batch_matches_data["matches"]
-    }
-
-    batch_queries = step3_generate_final_queries(
-        batch_matches, batch_df, args.queries_per_item, args.dietary_flag,
-        dietary_columns, args.step3_prompt
+    logger.info(
+        f"Processing Step 3 batch {batch_idx + 1} (parallel) - {len(batch_df)} records"
     )
 
-    return {
-        "batch_idx": batch_idx,
-        "queries": batch_queries
-    }
+    # Get matches for this batch
+    batch_matches = {"matches": batch_matches_data["matches"]}
+
+    batch_queries = step3_generate_final_queries(
+        batch_matches,
+        batch_df,
+        args.queries_per_item,
+        args.dietary_flag,
+        dietary_columns,
+        args.step3_prompt,
+    )
+
+    return {"batch_idx": batch_idx, "queries": batch_queries}
 
 
 def main():
@@ -316,12 +379,16 @@ def main():
     if args.parallel < 1:
         raise ValueError("--parallel must be >= 1")
     if args.parallel > 32:  # Reasonable upper limit
-        raise ValueError("--parallel must be <= 32 (too many threads can hurt performance)")
+        raise ValueError(
+            "--parallel must be <= 32 (too many threads can hurt performance)"
+        )
 
     if args.use_intent_sets:
         intent_sets_full_path = os.path.join(project_root, args.use_intent_sets)
         if not os.path.exists(intent_sets_full_path):
-            raise ValueError(f"Intent sets directory not found: {intent_sets_full_path}")
+            raise ValueError(
+                f"Intent sets directory not found: {intent_sets_full_path}"
+            )
 
     # Setup MLflow
     setup_mlflow(args.experiment_name)
@@ -387,16 +454,25 @@ def main():
             if args.use_intent_sets:
                 # Load pre-generated intent sets for rotation
                 intent_sets_full_path = os.path.join(project_root, args.use_intent_sets)
-                intent_sets, intent_set_metadata = load_intent_sets(intent_sets_full_path)
+                intent_sets, intent_set_metadata = load_intent_sets(
+                    intent_sets_full_path
+                )
                 logger.info(f"Loaded {len(intent_sets)} pre-generated intent sets")
-                logger.info(f"Intent set rotation frequency: every {args.intent_set_rotation} batch(es)")
+                logger.info(
+                    f"Intent set rotation frequency: every {args.intent_set_rotation} batch(es)"
+                )
                 intents = None  # Will be set per batch
                 intent_set_usage = {}  # Track which sets are used
-                step1_processed_prompt = "Using pre-generated intent sets (step1 prompt not applicable)"
+                step1_processed_prompt = (
+                    "Using pre-generated intent sets (step1 prompt not applicable)"
+                )
             else:
                 # Generate intents (original behavior) and capture processed prompt
                 # Capture processed step1 prompt for logging
-                step1_prompt_path = args.step1_prompt or "prompts/intent_generation/v1.1_intent_generation.txt"
+                step1_prompt_path = (
+                    args.step1_prompt
+                    or "prompts/intent_generation/v1.1_intent_generation.txt"
+                )
                 step1_full_path = os.path.join(project_root, step1_prompt_path)
                 try:
                     with open(step1_full_path, encoding="utf-8") as f:
@@ -410,7 +486,9 @@ def main():
                         f"Return a simple list of {args.num_intents} search queries",
                     )
                 except FileNotFoundError:
-                    step1_processed_prompt = f"Error: Prompt file not found at {step1_full_path}"
+                    step1_processed_prompt = (
+                        f"Error: Prompt file not found at {step1_full_path}"
+                    )
 
                 intents = step1_generate_intents(args.num_intents, args.step1_prompt)
                 intent_sets = None
@@ -422,7 +500,11 @@ def main():
             log_step_metrics(1, step1_time, intents_generated=intents_count)
 
             # Load food data
-            food_df, dietary_columns = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag, start_idx=args.start_idx)
+            food_df, dietary_columns = load_food_data(
+                limit=args.limit,
+                dietary_flag=args.dietary_flag,
+                start_idx=args.start_idx,
+            )
 
             # Process foods in batches
             all_final_queries = []
@@ -436,16 +518,25 @@ def main():
 
             # Capture processed step2 prompt (using first batch for example)
             if total_batches > 0:
-                first_batch_df = food_df.iloc[:min(args.batch_size, len(food_df))]
-                step2_prompt_path = args.step2_prompt or "prompts/intent_generation/v1.2_intent_matching.txt"
+                first_batch_df = food_df.iloc[: min(args.batch_size, len(food_df))]
+                step2_prompt_path = (
+                    args.step2_prompt
+                    or "prompts/intent_generation/v1.2_intent_matching.txt"
+                )
                 step2_full_path = os.path.join(project_root, step2_prompt_path)
                 try:
                     with open(step2_full_path, encoding="utf-8") as f:
                         step2_template = f.read()
 
                     # Create the processed prompt with actual data (like step2_match_intents_to_foods does)
-                    intents_list = "\n".join([f"{i + 1}. {intent}" for i, intent in enumerate(intents)])
-                    display_df = first_batch_df[['consumable_id', 'consumable_name']].copy() if not args.dietary_flag else first_batch_df.copy()
+                    intents_list = "\n".join(
+                        [f"{i + 1}. {intent}" for i, intent in enumerate(intents)]
+                    )
+                    display_df = (
+                        first_batch_df[["consumable_id", "consumable_name"]].copy()
+                        if not args.dietary_flag
+                        else first_batch_df.copy()
+                    )
                     food_dataframe = display_df.to_markdown(index=False)
                     step2_processed_prompt = step2_template.format(
                         intents_list=intents_list, food_dataframe=food_dataframe
@@ -478,38 +569,58 @@ def main():
                     # Use single generated intents (original behavior)
                     current_intents = intents
 
-                batch_data_list.append({
-                    "batch_idx": batch_idx,
-                    "batch_df": batch_df,
-                    "start_idx": start_idx,
-                    "end_idx": end_idx,
-                })
+                batch_data_list.append(
+                    {
+                        "batch_idx": batch_idx,
+                        "batch_df": batch_df,
+                        "start_idx": start_idx,
+                        "end_idx": end_idx,
+                    }
+                )
                 batch_intents_list.append(current_intents)
 
             # Process Step 2 batches (sequential or parallel)
             if args.parallel > 1:
-                logger.info(f"Processing Step 2 with {args.parallel} parallel threads...")
+                logger.info(
+                    f"Processing Step 2 with {args.parallel} parallel threads..."
+                )
 
                 # Execute in parallel
                 with ThreadPoolExecutor(max_workers=args.parallel) as executor:
-                    step2_tasks = [(batch_data, intents, args) for batch_data, intents in zip(batch_data_list, batch_intents_list)]
-                    step2_results = list(executor.map(lambda x: process_step2_batch_parallel(x[0], x[1], x[2]), step2_tasks))
+                    step2_tasks = [
+                        (batch_data, intents, args)
+                        for batch_data, intents in zip(
+                            batch_data_list, batch_intents_list
+                        )
+                    ]
+                    step2_results = list(
+                        executor.map(
+                            lambda x: process_step2_batch_parallel(x[0], x[1], x[2]),
+                            step2_tasks,
+                        )
+                    )
 
                 # Aggregate Step 2 results
                 for result in step2_results:
                     all_matches["matches"].extend(result["matches"])
             else:
                 # Sequential processing (original behavior)
-                for batch_data, current_intents in zip(batch_data_list, batch_intents_list):
+                for batch_data, current_intents in zip(
+                    batch_data_list, batch_intents_list
+                ):
                     batch_idx = batch_data["batch_idx"]
                     batch_df = batch_data["batch_df"]
 
                     # Smart matching for this batch (original sequential code)
-                    batch_matches = step2_match_intents_to_foods(current_intents, batch_df, args.dietary_flag, args.step2_prompt)
+                    batch_matches = step2_match_intents_to_foods(
+                        current_intents, batch_df, args.dietary_flag, args.step2_prompt
+                    )
                     all_matches["matches"].extend(batch_matches["matches"])
 
             step2_time = time.time() - step2_start
-            log_step_metrics(2, step2_time, successful_matches=len(all_matches["matches"]))
+            log_step_metrics(
+                2, step2_time, successful_matches=len(all_matches["matches"])
+            )
 
             # Step 3: Generate final queries (if not stopping at intents)
             step3_time = 0
@@ -519,32 +630,52 @@ def main():
 
                 # Capture processed step3 prompt (using first batch for example)
                 if len(all_matches["matches"]) > 0:
-                    step3_prompt_path = args.step3_prompt or "prompts/intent_generation/v1.3_intent_query_generation.txt"
+                    step3_prompt_path = (
+                        args.step3_prompt
+                        or "prompts/intent_generation/v1.3_intent_query_generation.txt"
+                    )
                     step3_full_path = os.path.join(project_root, step3_prompt_path)
                     try:
                         with open(step3_full_path, encoding="utf-8") as f:
                             step3_template = f.read()
 
                         # Create example intent-food pairs (like step3_generate_final_queries does)
-                        sample_matches = all_matches["matches"][:3]  # First 3 matches for example
+                        sample_matches = all_matches["matches"][
+                            :3
+                        ]  # First 3 matches for example
                         intent_food_pairs = ""
                         for i, match in enumerate(sample_matches, 1):
-                            food_info = f'{match["consumable_name"]} (ID: {match["consumable_id"]})'
+                            food_info = f"{match['consumable_name']} (ID: {match['consumable_id']})"
                             if args.dietary_flag:
-                                food_row = food_df[food_df['consumable_id'] == match["consumable_id"]]
+                                food_row = food_df[
+                                    food_df["consumable_id"] == match["consumable_id"]
+                                ]
                                 if not food_row.empty:
-                                    dietary_cols = [col for col in food_df.columns if col.startswith(('is_', 'contains_', 'dietary_'))]
-                                    dietary_info = [col.replace('_', ' ').title() for col in dietary_cols if food_row[col].iloc[0]]
+                                    dietary_cols = [
+                                        col
+                                        for col in food_df.columns
+                                        if col.startswith(
+                                            ("is_", "contains_", "dietary_")
+                                        )
+                                    ]
+                                    dietary_info = [
+                                        col.replace("_", " ").title()
+                                        for col in dietary_cols
+                                        if food_row[col].iloc[0]
+                                    ]
                                     if dietary_info:
                                         food_info += f" [{', '.join(dietary_info)}]"
                             intent_food_pairs += f'\n{i}. Intent: "{match["intent"]}"\n   Food: {food_info}\n'
 
                         step3_processed_prompt = step3_template.format(
-                            intent_food_pairs=intent_food_pairs, queries_per_item=args.queries_per_item
+                            intent_food_pairs=intent_food_pairs,
+                            queries_per_item=args.queries_per_item,
                         )
                         processed_prompts["step3"] = step3_processed_prompt
                     except (FileNotFoundError, Exception) as e:
-                        processed_prompts["step3"] = f"Error processing step3 prompt: {e}"
+                        processed_prompts["step3"] = (
+                            f"Error processing step3 prompt: {e}"
+                        )
 
                 # Prepare batch matches data for Step 3 processing
                 batch_matches_list = []
@@ -560,64 +691,110 @@ def main():
 
                 # Process Step 3 batches (sequential or parallel)
                 if args.parallel > 1:
-                    logger.info(f"Processing Step 3 with {args.parallel} parallel threads...")
+                    logger.info(
+                        f"Processing Step 3 with {args.parallel} parallel threads..."
+                    )
 
                     # Execute in parallel
                     with ThreadPoolExecutor(max_workers=args.parallel) as executor:
-                        step3_tasks = [(batch_data, batch_matches, args, dietary_columns) for batch_data, batch_matches in zip(batch_data_list, batch_matches_list)]
-                        step3_results = list(executor.map(lambda x: process_step3_batch_parallel(x[0], x[1], x[2], x[3]), step3_tasks))
+                        step3_tasks = [
+                            (batch_data, batch_matches, args, dietary_columns)
+                            for batch_data, batch_matches in zip(
+                                batch_data_list, batch_matches_list
+                            )
+                        ]
+                        step3_results = list(
+                            executor.map(
+                                lambda x: process_step3_batch_parallel(
+                                    x[0], x[1], x[2], x[3]
+                                ),
+                                step3_tasks,
+                            )
+                        )
 
                     # Aggregate Step 3 results
                     for result in step3_results:
                         all_final_queries.extend(result["queries"])
                 else:
                     # Sequential processing (original behavior)
-                    for batch_data, batch_matches in zip(batch_data_list, batch_matches_list):
+                    for batch_data, batch_matches in zip(
+                        batch_data_list, batch_matches_list
+                    ):
                         batch_df = batch_data["batch_df"]
 
                         batch_queries = step3_generate_final_queries(
-                            batch_matches, batch_df, args.queries_per_item, args.dietary_flag, dietary_columns, args.step3_prompt
+                            batch_matches,
+                            batch_df,
+                            args.queries_per_item,
+                            args.dietary_flag,
+                            dietary_columns,
+                            args.step3_prompt,
                         )
                         all_final_queries.extend(batch_queries)
 
                 step3_time = time.time() - step3_start
-                log_step_metrics(3, step3_time, total_queries_generated=len(all_final_queries))
+                log_step_metrics(
+                    3, step3_time, total_queries_generated=len(all_final_queries)
+                )
 
             # Save results
             output_paths = save_results(
-                intents, all_matches, all_final_queries, food_df,
-                args.output_dir, args.stop_at_intents, args.dietary_flag, dietary_columns,
-                intent_set_usage
+                intents,
+                all_matches,
+                all_final_queries,
+                food_df,
+                args.output_dir,
+                args.stop_at_intents,
+                args.dietary_flag,
+                dietary_columns,
+                intent_set_usage,
             )
 
             # Save processed prompts as separate TXT files
-            processed_prompt_files = save_processed_prompts(processed_prompts, args.output_dir)
+            processed_prompt_files = save_processed_prompts(
+                processed_prompts, args.output_dir
+            )
 
             # Add config to output paths
             output_paths["config_snapshot"] = config_path
 
             # Add each processed prompt file to output paths
             for i, prompt_file in enumerate(processed_prompt_files):
-                step_name = os.path.basename(prompt_file).split('_')[0]  # Extract step1, step2, etc.
+                step_name = os.path.basename(prompt_file).split("_")[
+                    0
+                ]  # Extract step1, step2, etc.
                 output_paths[f"processed_prompt_{step_name}"] = prompt_file
 
             # Log parameters and prompt versions
             prompt_versions = {
                 "step1": args.step1_prompt or "v1.1_intent_generation.txt",
                 "step2": args.step2_prompt or "v1.2_intent_matching.txt",
-                "step3": (args.step3_prompt or "v1.3_intent_query_generation.txt") if not args.stop_at_intents else None
+                "step3": (args.step3_prompt or "v1.3_intent_query_generation.txt")
+                if not args.stop_at_intents
+                else None,
             }
             log_parameters(args, prompt_versions, intent_set_usage)
 
             # Log final metrics
             total_time = time.time() - total_start_time
             steps_executed = 2 if args.stop_at_intents else 3
-            queries_count = len(all_final_queries) if not args.stop_at_intents else len(all_matches["matches"])
+            queries_count = (
+                len(all_final_queries)
+                if not args.stop_at_intents
+                else len(all_matches["matches"])
+            )
 
-            intents_count = len(intents) if intents else (len(intent_sets) if intent_sets else 0)
+            intents_count = (
+                len(intents) if intents else (len(intent_sets) if intent_sets else 0)
+            )
             log_final_metrics(
-                total_time, steps_executed, args.stop_at_intents,
-                intents_count, len(all_matches["matches"]), queries_count, intent_set_usage
+                total_time,
+                steps_executed,
+                args.stop_at_intents,
+                intents_count,
+                len(all_matches["matches"]),
+                queries_count,
+                intent_set_usage,
             )
 
             # Log artifacts
@@ -626,21 +803,29 @@ def main():
             # Success summary
             logger.info(f"MLflow run completed successfully: {run.info.run_id}")
             if args.stop_at_intents:
-                intents_count_msg = len(intents) if intents else len(intent_sets) if intent_sets else 0
+                intents_count_msg = (
+                    len(intents) if intents else len(intent_sets) if intent_sets else 0
+                )
                 logger.info(
                     f"Used {intents_count_msg} intents matched to "
                     f"{len(all_matches['matches'])} foods (stopped at intents)"
                 )
             else:
-                intent_queries = len([q for q in all_final_queries if q["query_type"] == "intent"])
-                bridged_queries = len([q for q in all_final_queries if q["query_type"] == "bridged"])
+                intent_queries = len(
+                    [q for q in all_final_queries if q["query_type"] == "intent"]
+                )
+                bridged_queries = len(
+                    [q for q in all_final_queries if q["query_type"] == "bridged"]
+                )
                 logger.info(
                     f"Generated {len(all_final_queries)} total queries "
                     f"({intent_queries} intent + {bridged_queries} bridged)"
                 )
 
             print(f"✅ MLflow run completed: {run.info.run_id}")
-            print(f"📊 View results: mlflow ui --backend-store-uri file://{mlflow.get_tracking_uri().replace('file://', '')}")
+            print(
+                f"📊 View results: mlflow ui --backend-store-uri file://{mlflow.get_tracking_uri().replace('file://', '')}"
+            )
 
         except Exception as e:
             logger.error(f"Error during execution: {e}")

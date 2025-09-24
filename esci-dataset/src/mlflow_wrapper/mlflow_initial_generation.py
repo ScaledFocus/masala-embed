@@ -65,12 +65,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-
-
 def setup_mlflow(experiment_name: str) -> None:
     """Setup MLflow tracking."""
     # Set tracking URI to local mlruns directory
-    mlflow_tracking_uri = os.path.join(project_root, "mlruns") if project_root else "./mlruns"
+    mlflow_tracking_uri = (
+        os.path.join(project_root, "mlruns") if project_root else "./mlruns"
+    )
     mlflow.set_tracking_uri(f"file://{mlflow_tracking_uri}")
 
     # Set or create experiment
@@ -78,10 +78,14 @@ def setup_mlflow(experiment_name: str) -> None:
         experiment = mlflow.get_experiment_by_name(experiment_name)
         if experiment is None:
             experiment_id = mlflow.create_experiment(experiment_name)
-            logger.info(f"Created new MLflow experiment: {experiment_name} (ID: {experiment_id})")
+            logger.info(
+                f"Created new MLflow experiment: {experiment_name} (ID: {experiment_id})"
+            )
         else:
             experiment_id = experiment.experiment_id
-            logger.info(f"Using existing MLflow experiment: {experiment_name} (ID: {experiment_id})")
+            logger.info(
+                f"Using existing MLflow experiment: {experiment_name} (ID: {experiment_id})"
+            )
 
         mlflow.set_experiment(experiment_name)
     except Exception as e:
@@ -89,7 +93,9 @@ def setup_mlflow(experiment_name: str) -> None:
         raise
 
 
-def log_parameters(args: argparse.Namespace, template_path: str, query_examples_path: str) -> None:
+def log_parameters(
+    args: argparse.Namespace, template_path: str, query_examples_path: str
+) -> None:
     """Log all parameters to MLflow."""
     # Log all CLI arguments
     mlflow.log_param("script_name", "initial_generation.py")
@@ -145,7 +151,9 @@ def log_query_examples_as_artifact(query_examples_path: str) -> None:
             logger.warning(f"Failed to log query examples artifact: {e}")
 
 
-def save_processed_prompts_as_artifact(processed_prompts: dict, output_dir: str) -> list[str]:
+def save_processed_prompts_as_artifact(
+    processed_prompts: dict, output_dir: str
+) -> list[str]:
     """Save processed prompts as separate TXT files."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     saved_files = []
@@ -177,8 +185,12 @@ def log_timing_metrics(total_runtime: float, batch_times: list[float]) -> None:
         mlflow.log_metric("total_batches", len(batch_times))
 
 
-def log_success_metrics(total_candidates: int, total_queries: int,
-                       successful_batches: int, failed_batches: int) -> None:
+def log_success_metrics(
+    total_candidates: int,
+    total_queries: int,
+    successful_batches: int,
+    failed_batches: int,
+) -> None:
     """Log success metrics to MLflow."""
     mlflow.log_metric("total_candidates_generated", total_candidates)
     mlflow.log_metric("total_queries_generated", total_queries)
@@ -216,8 +228,12 @@ def save_batch_failures(failures: list[dict], output_dir: str) -> str:
     return failures_path
 
 
-def save_config_snapshot(args: argparse.Namespace, output_dir: str,
-                        template_path: str, query_examples_path: str) -> str:
+def save_config_snapshot(
+    args: argparse.Namespace,
+    output_dir: str,
+    template_path: str,
+    query_examples_path: str,
+) -> str:
     """Save configuration snapshot as JSON."""
     config = {
         "script_name": "initial_generation.py",
@@ -318,7 +334,7 @@ def process_in_batches_with_tracking(
             "batch_number": batch_idx + 1,
             "prompt": prompt,
             "prompt_length": len(prompt),
-            "records_count": len(batch_df)
+            "records_count": len(batch_df),
         }
 
         # Generate queries for this batch
@@ -339,13 +355,15 @@ def process_in_batches_with_tracking(
             batch_time = time.time() - batch_start_time
             batch_times.append(batch_time)
 
-            batch_detail.update({
-                "status": "success",
-                "candidates_generated": len(batch_candidates),
-                "queries_generated": total_queries,
-                "execution_time_seconds": batch_time,
-                "end_time": datetime.now().isoformat(),
-            })
+            batch_detail.update(
+                {
+                    "status": "success",
+                    "candidates_generated": len(batch_candidates),
+                    "queries_generated": total_queries,
+                    "execution_time_seconds": batch_time,
+                    "end_time": datetime.now().isoformat(),
+                }
+            )
 
             logger.info(
                 f"Batch {batch_idx + 1} completed: {len(batch_candidates)} "
@@ -356,28 +374,38 @@ def process_in_batches_with_tracking(
             batch_time = time.time() - batch_start_time
             batch_times.append(batch_time)
 
-            batch_detail.update({
-                "status": "failed",
-                "error": str(e),
-                "execution_time_seconds": batch_time,
-                "end_time": datetime.now().isoformat(),
-            })
+            batch_detail.update(
+                {
+                    "status": "failed",
+                    "error": str(e),
+                    "execution_time_seconds": batch_time,
+                    "end_time": datetime.now().isoformat(),
+                }
+            )
 
-            batch_failures.append({
-                "batch_number": batch_idx + 1,
-                "error": str(e),
-                "timestamp": datetime.now().isoformat(),
-                "start_index": start_idx,
-                "end_index": end_idx,
-                "records_count": len(batch_df),
-            })
+            batch_failures.append(
+                {
+                    "batch_number": batch_idx + 1,
+                    "error": str(e),
+                    "timestamp": datetime.now().isoformat(),
+                    "start_index": start_idx,
+                    "end_index": end_idx,
+                    "records_count": len(batch_df),
+                }
+            )
 
             logger.error(f"Batch {batch_idx + 1} failed: {e}")
             # Continue with next batch instead of failing completely
 
         batch_details.append(batch_detail)
 
-    return {"candidates": all_candidates}, batch_details, batch_failures, batch_times, processed_prompts
+    return (
+        {"candidates": all_candidates},
+        batch_details,
+        batch_failures,
+        batch_times,
+        processed_prompts,
+    )
 
 
 def process_single_batch_for_parallel(
@@ -440,13 +468,15 @@ def process_single_batch_for_parallel(
 
         batch_time = time.time() - batch_start_time
 
-        batch_detail.update({
-            "status": "success",
-            "candidates_generated": len(batch_candidates),
-            "queries_generated": total_queries,
-            "execution_time_seconds": batch_time,
-            "end_time": datetime.now().isoformat(),
-        })
+        batch_detail.update(
+            {
+                "status": "success",
+                "candidates_generated": len(batch_candidates),
+                "queries_generated": total_queries,
+                "execution_time_seconds": batch_time,
+                "end_time": datetime.now().isoformat(),
+            }
+        )
 
         logger.info(
             f"Batch {batch_idx + 1} completed: {len(batch_candidates)} "
@@ -462,20 +492,22 @@ def process_single_batch_for_parallel(
                     "batch_number": batch_idx + 1,
                     "prompt": prompt,
                     "prompt_length": len(prompt),
-                    "records_count": len(batch_df)
+                    "records_count": len(batch_df),
                 }
-            }
+            },
         }
 
     except Exception as e:
         batch_time = time.time() - batch_start_time
 
-        batch_detail.update({
-            "status": "failed",
-            "error": str(e),
-            "execution_time_seconds": batch_time,
-            "end_time": datetime.now().isoformat(),
-        })
+        batch_detail.update(
+            {
+                "status": "failed",
+                "error": str(e),
+                "execution_time_seconds": batch_time,
+                "end_time": datetime.now().isoformat(),
+            }
+        )
 
         batch_failure = {
             "batch_number": batch_idx + 1,
@@ -493,7 +525,7 @@ def process_single_batch_for_parallel(
             "batch_detail": batch_detail,
             "batch_time": batch_time,
             "batch_failure": batch_failure,
-            "processed_prompt": {}
+            "processed_prompt": {},
         }
 
 
@@ -527,12 +559,14 @@ def process_in_batches_parallel(
         end_idx = min(start_idx + args.batch_size, len(df))
         batch_df = df.iloc[start_idx:end_idx].copy()
 
-        batch_data_list.append({
-            "batch_idx": batch_idx,
-            "batch_df": batch_df,
-            "start_idx": start_idx,
-            "end_idx": end_idx,
-        })
+        batch_data_list.append(
+            {
+                "batch_idx": batch_idx,
+                "batch_df": batch_df,
+                "start_idx": start_idx,
+                "end_idx": end_idx,
+            }
+        )
 
     # Execute batches in parallel using concurrent.futures for better control
     import functools
@@ -546,7 +580,7 @@ def process_in_batches_parallel(
         args=args,
         template_path=template_path,
         query_examples_path=query_examples_path,
-        dietary_columns=dietary_columns
+        dietary_columns=dietary_columns,
     )
 
     # Execute batches in parallel using ThreadPoolExecutor
@@ -571,7 +605,13 @@ def process_in_batches_parallel(
         # Add processed prompts
         processed_prompts.update(result["processed_prompt"])
 
-    return {"candidates": all_candidates}, batch_details, batch_failures, batch_times, processed_prompts
+    return (
+        {"candidates": all_candidates},
+        batch_details,
+        batch_failures,
+        batch_times,
+        processed_prompts,
+    )
 
 
 def setup_argparser() -> argparse.ArgumentParser:
@@ -583,18 +623,18 @@ def setup_argparser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--experiment-name",
         default=None,
-        help="MLflow experiment name (default: initial-generation-{esci_label})"
+        help="MLflow experiment name (default: initial-generation-{esci_label})",
     )
     parser.add_argument(
         "--run-name",
         default=None,
-        help="MLflow run name (auto-generated if not provided)"
+        help="MLflow run name (auto-generated if not provided)",
     )
     parser.add_argument(
         "--parallel",
         type=int,
         default=1,
-        help="Number of parallel threads for batch processing (default: 1 for sequential)"
+        help="Number of parallel threads for batch processing (default: 1 for sequential)",
     )
 
     return parser
@@ -612,7 +652,9 @@ def main():
     if args.parallel < 1:
         raise ValueError("--parallel must be >= 1")
     if args.parallel > 32:  # Reasonable upper limit
-        raise ValueError("--parallel must be <= 32 (too many threads can hurt performance)")
+        raise ValueError(
+            "--parallel must be <= 32 (too many threads can hurt performance)"
+        )
 
     # Generate default experiment name based on ESCI label
     experiment_name = args.experiment_name or f"initial-generation-{args.esci_label}"
@@ -682,13 +724,17 @@ def main():
             logger.info(f"Using template: {template_path}")
 
             # Create output directory for artifacts
-            output_dir = os.path.dirname(args.output_path) if args.output_path else "output"
+            output_dir = (
+                os.path.dirname(args.output_path) if args.output_path else "output"
+            )
             if project_root and not os.path.isabs(output_dir):
                 output_dir = os.path.join(project_root, output_dir)
             Path(output_dir).mkdir(parents=True, exist_ok=True)
 
             # Save config snapshot
-            config_path = save_config_snapshot(args, output_dir, template_path, query_examples_path)
+            config_path = save_config_snapshot(
+                args, output_dir, template_path, query_examples_path
+            )
 
             # Log parameters and artifacts
             log_parameters(args, template_path, query_examples_path)
@@ -698,13 +744,37 @@ def main():
             # Choose processing method based on parallel flag
             if args.parallel > 1:
                 # Use parallel processing
-                output_dict, batch_details, batch_failures, batch_times, processed_prompts = process_in_batches_parallel(
-                    df, args, generator, template_path, query_examples_path, output_dir, dietary_columns
+                (
+                    output_dict,
+                    batch_details,
+                    batch_failures,
+                    batch_times,
+                    processed_prompts,
+                ) = process_in_batches_parallel(
+                    df,
+                    args,
+                    generator,
+                    template_path,
+                    query_examples_path,
+                    output_dir,
+                    dietary_columns,
                 )
             else:
                 # Use sequential processing
-                output_dict, batch_details, batch_failures, batch_times, processed_prompts = process_in_batches_with_tracking(
-                    df, args, generator, template_path, query_examples_path, output_dir, dietary_columns
+                (
+                    output_dict,
+                    batch_details,
+                    batch_failures,
+                    batch_times,
+                    processed_prompts,
+                ) = process_in_batches_with_tracking(
+                    df,
+                    args,
+                    generator,
+                    template_path,
+                    query_examples_path,
+                    output_dir,
+                    dietary_columns,
                 )
 
             # Calculate metrics
@@ -713,13 +783,19 @@ def main():
                 len(candidate.get("queries", []))
                 for candidate in output_dict.get("candidates", [])
             )
-            successful_batches = len([bd for bd in batch_details if bd["status"] == "success"])
-            failed_batches = len([bd for bd in batch_details if bd["status"] == "failed"])
+            successful_batches = len(
+                [bd for bd in batch_details if bd["status"] == "success"]
+            )
+            failed_batches = len(
+                [bd for bd in batch_details if bd["status"] == "failed"]
+            )
 
             # Log timing and success metrics
             total_runtime = time.time() - total_start_time
             log_timing_metrics(total_runtime, batch_times)
-            log_success_metrics(total_candidates, total_queries, successful_batches, failed_batches)
+            log_success_metrics(
+                total_candidates, total_queries, successful_batches, failed_batches
+            )
 
             # Handle failures
             if batch_failures:
@@ -753,7 +829,9 @@ def main():
             if successful_batches == len(batch_details):
                 logger.info("✅ All batches completed successfully!")
             else:
-                logger.warning(f"⚠️ {failed_batches} out of {len(batch_details)} batches failed")
+                logger.warning(
+                    f"⚠️ {failed_batches} out of {len(batch_details)} batches failed"
+                )
 
             logger.info(
                 f"Generated {total_queries} queries for "
@@ -761,7 +839,9 @@ def main():
             )
 
             print(f"✅ MLflow run completed: {run.info.run_id}")
-            print(f"📊 View results: mlflow ui --backend-store-uri file://{mlflow.get_tracking_uri().replace('file://', '')}")
+            print(
+                f"📊 View results: mlflow ui --backend-store-uri file://{mlflow.get_tracking_uri().replace('file://', '')}"
+            )
             print(f"📄 Output saved to: {output_path}")
             print(f"🏷️ ESCI Label: {args.esci_label}")
             print(f"📈 Success Rate: {successful_batches}/{len(batch_details)} batches")

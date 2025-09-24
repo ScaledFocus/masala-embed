@@ -267,8 +267,10 @@ def load_and_process_data(args: argparse.Namespace) -> tuple[pd.DataFrame, list[
 
         # Apply start_idx and limit AFTER shuffling
         if args.start_idx > 0:
-            df = df.iloc[args.start_idx:]
-            logger.info(f"Resumed from index {args.start_idx}, {len(df)} records remaining")
+            df = df.iloc[args.start_idx :]
+            logger.info(
+                f"Resumed from index {args.start_idx}, {len(df)} records remaining"
+            )
 
         if args.limit is not None:
             df = df.head(args.limit)
@@ -389,7 +391,11 @@ def process_in_batches(
 
 
 def save_results_as_csv(
-    output_data: dict, output_path: str, args: argparse.Namespace, original_df: pd.DataFrame = None, dietary_columns: list[str] = None
+    output_data: dict,
+    output_path: str,
+    args: argparse.Namespace,
+    original_df: pd.DataFrame = None,
+    dietary_columns: list[str] = None,
 ) -> None:
     """Save generation results to CSV file using structured approach."""
     # Add metadata
@@ -413,7 +419,12 @@ def save_results_as_csv(
     logger.info(f"Results saved to CSV: {output_path}")
 
 
-def save_as_csv(output_data: dict, output_path: str, original_df: pd.DataFrame = None, dietary_columns: list[str] = None) -> None:
+def save_as_csv(
+    output_data: dict,
+    output_path: str,
+    original_df: pd.DataFrame = None,
+    dietary_columns: list[str] = None,
+) -> None:
     """Save results in CSV format with one query per row using structured approach."""
     candidates = output_data.get("candidates", [])
     metadata = output_data.get("metadata", {})
@@ -446,7 +457,7 @@ def save_as_csv(output_data: dict, output_path: str, original_df: pd.DataFrame =
                 "consumable_id",
                 "consumable_name",
                 "query",
-                "query_filters"
+                "query_filters",
             ]
             # Keep only columns that exist in the DataFrame
             final_columns = [col for col in essential_columns if col in df.columns]
@@ -464,7 +475,11 @@ def save_as_csv(output_data: dict, output_path: str, original_df: pd.DataFrame =
     df.to_csv(output_path, index=False, encoding="utf-8")
 
 
-def create_enhanced_query_filters(df: pd.DataFrame, original_df: pd.DataFrame = None, dietary_columns: list[str] = None) -> pd.DataFrame:
+def create_enhanced_query_filters(
+    df: pd.DataFrame,
+    original_df: pd.DataFrame = None,
+    dietary_columns: list[str] = None,
+) -> pd.DataFrame:
     """
     Create enhanced query_filters JSON structure using existing dietary columns.
 
@@ -484,7 +499,9 @@ def create_enhanced_query_filters(df: pd.DataFrame, original_df: pd.DataFrame = 
         # Create a DataFrame with only id and dietary columns
         dietary_df = original_df[["id"] + dietary_columns].copy()
         # Melt to long format, filter True, and aggregate to lists
-        melted = dietary_df.melt(id_vars="id", value_vars=dietary_columns, var_name="col", value_name="val")
+        melted = dietary_df.melt(
+            id_vars="id", value_vars=dietary_columns, var_name="col", value_name="val"
+        )
         filtered = melted[melted["val"]].copy()
         # Humanize column names
         filtered["col"] = (
@@ -496,9 +513,7 @@ def create_enhanced_query_filters(df: pd.DataFrame, original_df: pd.DataFrame = 
             .str.replace("Dairy Free", "Dairy-Free")
             .str.replace("Nut Free", "Nut-Free")
         )
-        dietary_lookup = (
-            filtered.groupby("id")["col"].apply(list).to_dict()
-        )
+        dietary_lookup = filtered.groupby("id")["col"].apply(list).to_dict()
     else:
         dietary_lookup = {}
 
@@ -507,19 +522,26 @@ def create_enhanced_query_filters(df: pd.DataFrame, original_df: pd.DataFrame = 
         candidate_id = row["consumable_id"]
         # Parse LLM dimensions
         try:
-            llm_dimensions = json.loads(row["dimensions_json"]) if row["dimensions_json"] else {}
+            llm_dimensions = (
+                json.loads(row["dimensions_json"]) if row["dimensions_json"] else {}
+            )
         except Exception as e:
-            logger.warning(f"Failed to parse dimensions_json for id {candidate_id}: {e}")
+            logger.warning(
+                f"Failed to parse dimensions_json for id {candidate_id}: {e}"
+            )
             llm_dimensions = {}
         # Get rule-based dietary
         rule_based_dietary = dietary_lookup.get(candidate_id, [])
-        return json.dumps({
-            "dimensions": llm_dimensions,
-            "rule_based_dietary_restrictions": rule_based_dietary
-        })
+        return json.dumps(
+            {
+                "dimensions": llm_dimensions,
+                "rule_based_dietary_restrictions": rule_based_dietary,
+            }
+        )
 
     df["query_filters"] = df.apply(build_query_filters, axis=1)
     return df
+
 
 def main():
     """Main function."""

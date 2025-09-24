@@ -36,7 +36,7 @@ class GeneratedQuery(BaseModel):
     )
     dimensions: dict[str, str] = Field(
         default_factory=dict,
-        description="Query attributes as key-value pairs. Examples: {'price': 'cheap', 'location': 'near me'}, {'cuisine': 'Indian', 'urgency': 'fast delivery'}, {'dietary_restrictions': 'Vegetarian', 'meal_type': 'Starters'}"
+        description="Query attributes as key-value pairs. Examples: {'price': 'cheap', 'location': 'near me'}, {'cuisine': 'Indian', 'urgency': 'fast delivery'}, {'dietary_restrictions': 'Vegetarian', 'meal_type': 'Starters'}",
     )
 
 
@@ -44,7 +44,9 @@ class CandidateQueries(BaseModel):
     """Schema for queries generated for a single candidate."""
 
     id: int = Field(description="Candidate ID from the food database")
-    name: str = Field(description="Candidate food name (e.g., 'Paneer Tikka', 'Braised Tofu')")
+    name: str = Field(
+        description="Candidate food name (e.g., 'Paneer Tikka', 'Braised Tofu')"
+    )
     queries: list[GeneratedQuery] = Field(
         description="List of generated queries for this candidate, varying from simple to complex with different dimensions"
     )

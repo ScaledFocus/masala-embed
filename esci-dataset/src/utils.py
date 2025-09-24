@@ -16,13 +16,21 @@ def get_git_info() -> dict[str, str]:
 
     try:
         # Use --short flag for consistent short hashes
-        commit_hash = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], cwd=project_root
-        ).decode().strip()
+        commit_hash = (
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"], cwd=project_root
+            )
+            .decode()
+            .strip()
+        )
 
-        branch_name = subprocess.check_output(
-            ["git", "branch", "--show-current"], cwd=project_root
-        ).decode().strip()
+        branch_name = (
+            subprocess.check_output(
+                ["git", "branch", "--show-current"], cwd=project_root
+            )
+            .decode()
+            .strip()
+        )
 
         return {"commit_hash": commit_hash, "branch_name": branch_name}
     except Exception:

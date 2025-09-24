@@ -51,7 +51,7 @@ def load_intent_sets(intent_sets_dir: str) -> list[list[str]]:
     # Load summary file first to get file list
     summary_path = os.path.join(intent_sets_dir, "intent_sets_summary.json")
     if os.path.exists(summary_path):
-        with open(summary_path, encoding='utf-8') as f:
+        with open(summary_path, encoding="utf-8") as f:
             summary = json.load(f)
         total_sets = summary["generation_info"]["total_sets"]
         logger.info(f"Found {total_sets} intent sets in summary")
@@ -64,11 +64,13 @@ def load_intent_sets(intent_sets_dir: str) -> list[list[str]]:
     for i in range(1, total_sets + 1):
         file_path = os.path.join(intent_sets_dir, f"intent_set_{i:02d}.json")
         if os.path.exists(file_path):
-            with open(file_path, encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 intent_set_data = json.load(f)
-                intent_sets.append(intent_set_data['intents'])
-                intent_set_metadata.append(intent_set_data['metadata'])
-                logger.info(f"Loaded intent set {i} with {len(intent_set_data['intents'])} intents")
+                intent_sets.append(intent_set_data["intents"])
+                intent_set_metadata.append(intent_set_data["metadata"])
+                logger.info(
+                    f"Loaded intent set {i} with {len(intent_set_data['intents'])} intents"
+                )
         else:
             raise FileNotFoundError(f"Intent set file not found: {file_path}")
 
@@ -79,8 +81,9 @@ def load_intent_sets(intent_sets_dir: str) -> list[list[str]]:
     return intent_sets, intent_set_metadata
 
 
-def get_intent_set_for_batch(batch_num: int, intent_sets: list[list[str]],
-                           rotation_frequency: int) -> tuple[list[str], int]:
+def get_intent_set_for_batch(
+    batch_num: int, intent_sets: list[list[str]], rotation_frequency: int
+) -> tuple[list[str], int]:
     """Get the appropriate intent set for current batch."""
     intent_set_index = (batch_num // rotation_frequency) % len(intent_sets)
     return intent_sets[intent_set_index], intent_set_index
@@ -251,7 +254,9 @@ def step1_generate_intents(num_intents: int = 50, prompt_path: str = None) -> li
         raise
 
 
-def load_food_data(limit: int | None = None, dietary_flag: bool = False, start_idx: int = 0) -> tuple[pd.DataFrame, list[str]]:
+def load_food_data(
+    limit: int | None = None, dietary_flag: bool = False, start_idx: int = 0
+) -> tuple[pd.DataFrame, list[str]]:
     """Load food candidates data from database."""
     logger.info("Loading consumable data from database...")
     try:
@@ -275,7 +280,7 @@ def load_food_data(limit: int | None = None, dietary_flag: bool = False, start_i
             logger.info(f"Selected top {len(df)} records after shuffling and start_idx")
 
         # Map database column names to expected format
-        df = df.rename(columns={'id': 'consumable_id'})
+        df = df.rename(columns={"id": "consumable_id"})
         logger.info("Mapped 'id' column to 'consumable_id'")
 
         # Apply dietary evaluation if requested
@@ -295,7 +300,12 @@ def load_food_data(limit: int | None = None, dietary_flag: bool = False, start_i
         raise
 
 
-def step2_match_intents_to_foods(intents: list[str], food_df: pd.DataFrame, dietary_flag: bool = False, prompt_path: str = None) -> dict:
+def step2_match_intents_to_foods(
+    intents: list[str],
+    food_df: pd.DataFrame,
+    dietary_flag: bool = False,
+    prompt_path: str = None,
+) -> dict:
     """Step 2: Smart 1:1 matching of foods to best-fitting intents using DSPy."""
     logger.info(f"Step 2: Matching {len(food_df)} foods to {len(intents)} intents")
     logger.info(f"Food dataframe columns: {food_df.columns.tolist()}")
@@ -321,7 +331,7 @@ def step2_match_intents_to_foods(intents: list[str], food_df: pd.DataFrame, diet
         display_df = food_df.copy()
     else:
         # Only include basic columns for matching
-        display_df = food_df[['consumable_id', 'consumable_name']].copy()
+        display_df = food_df[["consumable_id", "consumable_name"]].copy()
 
     food_dataframe = display_df.to_markdown(index=False)
 
@@ -346,8 +356,12 @@ def step2_match_intents_to_foods(intents: list[str], food_df: pd.DataFrame, diet
 
 
 def step3_generate_final_queries(
-    matches: dict, food_df: pd.DataFrame, queries_per_item: int = 3, dietary_flag: bool = False,
-    dietary_columns: list[str] = None, prompt_path: str = None
+    matches: dict,
+    food_df: pd.DataFrame,
+    queries_per_item: int = 3,
+    dietary_flag: bool = False,
+    dietary_columns: list[str] = None,
+    prompt_path: str = None,
 ) -> list[dict]:
     """Step 3: Generate final queries for all matched pairs using DSPy."""
     logger.info(
@@ -370,16 +384,18 @@ def step3_generate_final_queries(
     # Format intent-food pairs
     intent_food_pairs = ""
     for i, match in enumerate(matches["matches"], 1):
-        food_info = f'{match["consumable_name"]} (ID: {match["consumable_id"]})'
+        food_info = f"{match['consumable_name']} (ID: {match['consumable_id']})"
 
         # Add dietary information if flag is enabled
         if dietary_flag and dietary_columns:
-            food_row = food_df[food_df['consumable_id'] == match["consumable_id"]]
+            food_row = food_df[food_df["consumable_id"] == match["consumable_id"]]
             if not food_row.empty:
                 dietary_info = []
                 for col in dietary_columns:
-                    if col in food_row.columns and food_row[col].iloc[0]:  # Only show True values
-                        human_name = col.replace('_', ' ').title()
+                    if (
+                        col in food_row.columns and food_row[col].iloc[0]
+                    ):  # Only show True values
+                        human_name = col.replace("_", " ").title()
                         dietary_info.append(human_name)
                 if dietary_info:
                     food_info += f" [{', '.join(dietary_info)}]"
@@ -402,7 +418,7 @@ def step3_generate_final_queries(
         # Debug: Check the result structure
         logger.info(f"Result type: {type(result)}")
         logger.info(f"Result has query_results: {hasattr(result, 'query_results')}")
-        if hasattr(result, 'query_results'):
+        if hasattr(result, "query_results"):
             logger.info(f"Number of query_results: {len(result.query_results)}")
             if result.query_results:
                 logger.info(f"First query_result type: {type(result.query_results[0])}")
@@ -427,7 +443,9 @@ def step3_generate_final_queries(
 
             # Add dietary columns if flag is enabled
             if dietary_flag and dietary_columns:
-                food_row = food_df[food_df['consumable_id'] == query_result.consumable_id]
+                food_row = food_df[
+                    food_df["consumable_id"] == query_result.consumable_id
+                ]
                 if not food_row.empty:
                     for col in dietary_columns:
                         if col in food_row.columns:
@@ -435,19 +453,23 @@ def step3_generate_final_queries(
 
             # Add intent as standalone query
             intent_record = base_record.copy()
-            intent_record.update({
-                "query": query_result.original_intent,
-                "query_type": "intent",
-            })
+            intent_record.update(
+                {
+                    "query": query_result.original_intent,
+                    "query_type": "intent",
+                }
+            )
             final_queries.append(intent_record)
 
             # Add bridged queries
             for query in query_result.queries:
                 bridged_record = base_record.copy()
-                bridged_record.update({
-                    "query": query,
-                    "query_type": "bridged",
-                })
+                bridged_record.update(
+                    {
+                        "query": query,
+                        "query_type": "bridged",
+                    }
+                )
                 final_queries.append(bridged_record)
 
         intent_count = len([q for q in final_queries if q["query_type"] == "intent"])
@@ -539,7 +561,7 @@ def save_results(
             # Add dietary columns if flag is enabled
             if dietary_flag and dietary_columns:
                 # Get food item from dataframe to include dietary info
-                food_row = food_df[food_df['consumable_id'] == match["consumable_id"]]
+                food_row = food_df[food_df["consumable_id"] == match["consumable_id"]]
                 if not food_row.empty:
                     # Add dietary columns if they exist
                     for col in dietary_columns:
@@ -562,7 +584,7 @@ def save_results(
         "intents_path": intents_path,
         "matches_path": matches_path,
         "matches_csv_path": matches_csv_path,
-        "queries_path": queries_path
+        "queries_path": queries_path,
     }
 
 
@@ -605,9 +627,21 @@ def main():
         help="Temperature for model generation",
     )
     parser.add_argument("--output-dir", default="output", help="Output directory")
-    parser.add_argument("--step1-prompt", default=None, help="Path to step1 intent generation prompt (relative to project root)")
-    parser.add_argument("--step2-prompt", default=None, help="Path to step2 intent matching prompt (relative to project root)")
-    parser.add_argument("--step3-prompt", default=None, help="Path to step3 query generation prompt (relative to project root)")
+    parser.add_argument(
+        "--step1-prompt",
+        default=None,
+        help="Path to step1 intent generation prompt (relative to project root)",
+    )
+    parser.add_argument(
+        "--step2-prompt",
+        default=None,
+        help="Path to step2 intent matching prompt (relative to project root)",
+    )
+    parser.add_argument(
+        "--step3-prompt",
+        default=None,
+        help="Path to step3 query generation prompt (relative to project root)",
+    )
     parser.add_argument(
         "--start_idx",
         type=int,
@@ -653,7 +687,9 @@ def main():
             # Load pre-generated intent sets for rotation
             intent_sets, intent_set_metadata = load_intent_sets(args.use_intent_sets)
             logger.info(f"Loaded {len(intent_sets)} pre-generated intent sets")
-            logger.info(f"Intent set rotation frequency: every {args.intent_set_rotation} batch(es)")
+            logger.info(
+                f"Intent set rotation frequency: every {args.intent_set_rotation} batch(es)"
+            )
             intents = None  # Will be set per batch
             intent_set_usage = {}  # Track which sets are used
         else:
@@ -664,7 +700,9 @@ def main():
             intent_set_usage = None
 
         # Load food data
-        food_df, dietary_columns = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag, start_idx=args.start_idx)
+        food_df, dietary_columns = load_food_data(
+            limit=args.limit, dietary_flag=args.dietary_flag, start_idx=args.start_idx
+        )
 
         # Process foods in batches
         all_final_queries = []
@@ -699,7 +737,9 @@ def main():
                 )
 
             # Step 2: Smart matching for this batch
-            batch_matches = step2_match_intents_to_foods(current_intents, batch_df, args.dietary_flag, args.step2_prompt)
+            batch_matches = step2_match_intents_to_foods(
+                current_intents, batch_df, args.dietary_flag, args.step2_prompt
+            )
 
             # Accumulate matches
             all_matches["matches"].extend(batch_matches["matches"])
@@ -707,7 +747,12 @@ def main():
             # Step 3: Generate final queries for this batch (if not stopping at intents)
             if not args.stop_at_intents:
                 batch_queries = step3_generate_final_queries(
-                    batch_matches, batch_df, args.queries_per_item, args.dietary_flag, dietary_columns, args.step3_prompt
+                    batch_matches,
+                    batch_df,
+                    args.queries_per_item,
+                    args.dietary_flag,
+                    dietary_columns,
+                    args.step3_prompt,
                 )
                 all_final_queries.extend(batch_queries)
 
@@ -715,8 +760,15 @@ def main():
 
         # Save results
         output_paths = save_results(
-            intents, all_matches, final_queries, food_df, args.output_dir, args.stop_at_intents,
-            args.dietary_flag, dietary_columns, intent_set_usage
+            intents,
+            all_matches,
+            final_queries,
+            food_df,
+            args.output_dir,
+            args.stop_at_intents,
+            args.dietary_flag,
+            dietary_columns,
+            intent_set_usage,
         )
 
         # Summary

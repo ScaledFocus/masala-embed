@@ -13,7 +13,9 @@ import mlflow
 
 # Setup MLflow
 project_root = os.getenv("root_folder")
-mlflow_tracking_uri = os.path.join(project_root, "mlruns") if project_root else "./mlruns"
+mlflow_tracking_uri = (
+    os.path.join(project_root, "mlruns") if project_root else "./mlruns"
+)
 mlflow.set_tracking_uri(f"file://{mlflow_tracking_uri}")
 
 if len(sys.argv) < 2:
@@ -36,7 +38,7 @@ for run_id in run_ids:
     try:
         # Check if run exists
         run = client.get_run(run_id)
-        current_status = run.data.tags.get('data_status', 'not set')
+        current_status = run.data.tags.get("data_status", "not set")
 
         print(f"Run: {run_id[:8]}...")
         print(f"  Current status: {current_status}")

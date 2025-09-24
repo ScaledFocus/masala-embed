@@ -14,7 +14,9 @@ def load_prompt_template(template_path: str) -> str:
         return f.read()
 
 
-def generate_markdown_table(df: pd.DataFrame, dietary_columns: list[str] = None, include_dietary: bool = False) -> str:
+def generate_markdown_table(
+    df: pd.DataFrame, dietary_columns: list[str] = None, include_dietary: bool = False
+) -> str:
     """
     Generate a markdown table from DataFrame.
 

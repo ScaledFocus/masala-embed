@@ -52,7 +52,9 @@ logger = logging.getLogger(__name__)
 
 def setup_mlflow() -> None:
     """Setup MLflow tracking URI."""
-    mlflow_tracking_uri = os.path.join(project_root, "mlruns") if project_root else "./mlruns"
+    mlflow_tracking_uri = (
+        os.path.join(project_root, "mlruns") if project_root else "./mlruns"
+    )
     mlflow.set_tracking_uri(f"file://{mlflow_tracking_uri}")
 
 
@@ -70,7 +72,7 @@ def get_approved_runs(experiment_name: str = None, run_id: str = None) -> list[d
         runs = mlflow.search_runs(
             experiment_ids=[experiment.experiment_id],
             filter_string="tags.data_status = 'approved'",
-            output_format="list"
+            output_format="list",
         )
     else:
         # Get all approved runs across experiments
@@ -86,11 +88,13 @@ def get_approved_runs(experiment_name: str = None, run_id: str = None) -> list[d
                 experiment_ids=[experiment.experiment_id],
                 filter_string="tags.data_status = 'approved'",
                 output_format="list",
-                max_results=100
+                max_results=100,
             )
 
             if exp_runs:
-                logger.info(f"Found {len(exp_runs)} approved runs in experiment: {experiment.name}")
+                logger.info(
+                    f"Found {len(exp_runs)} approved runs in experiment: {experiment.name}"
+                )
                 runs.extend(exp_runs)
 
     approved_runs = []
@@ -100,18 +104,20 @@ def get_approved_runs(experiment_name: str = None, run_id: str = None) -> list[d
             logger.info(f"Skipping already migrated run: {run.info.run_id}")
             continue
 
-        approved_runs.append({
-            "run_id": run.info.run_id,
-            "experiment_id": run.info.experiment_id,
-            "data_gen_hash": run.data.params.get("data_gen_hash"),
-            "mlflow_run_id": run.data.params.get("mlflow_run_id", run.info.run_id),
-            "generation_approach": run.data.params.get("generation_approach"),
-            "step": run.data.params.get("step"),
-            "output_type": run.data.params.get("output_type"),
-            "esci_label": run.data.params.get("esci_label"),
-            "tags": run.data.tags,
-            "run_name": run.info.run_name
-        })
+        approved_runs.append(
+            {
+                "run_id": run.info.run_id,
+                "experiment_id": run.info.experiment_id,
+                "data_gen_hash": run.data.params.get("data_gen_hash"),
+                "mlflow_run_id": run.data.params.get("mlflow_run_id", run.info.run_id),
+                "generation_approach": run.data.params.get("generation_approach"),
+                "step": run.data.params.get("step"),
+                "output_type": run.data.params.get("output_type"),
+                "esci_label": run.data.params.get("esci_label"),
+                "tags": run.data.tags,
+                "run_name": run.info.run_name,
+            }
+        )
 
     return approved_runs
 
@@ -124,13 +130,13 @@ def download_run_data(run_id: str, generation_approach: str = None) -> pd.DataFr
     if generation_approach == "intent":
         # Both 2-step and 3-step intent generation put CSV in outputs/queries_path
         artifacts = client.list_artifacts(run_id, path="outputs/queries_path")
-        csv_files = [a for a in artifacts if a.path.endswith('.csv')]
+        csv_files = [a for a in artifacts if a.path.endswith(".csv")]
         if not csv_files:
             raise ValueError(f"No CSV files found in intent generation run {run_id}")
     else:
         # Initial generation: look directly in outputs
         artifacts = client.list_artifacts(run_id, path="outputs")
-        csv_files = [a for a in artifacts if a.path.endswith('.csv')]
+        csv_files = [a for a in artifacts if a.path.endswith(".csv")]
         if not csv_files:
             raise ValueError(f"No CSV files found in run {run_id}")
 
@@ -158,7 +164,7 @@ def ensure_labeler_exists(data_gen_hash: str, generation_approach: str) -> int:
             # Check if labeler already exists
             cursor.execute(
                 "SELECT id FROM labeler WHERE name = %s AND type = %s",
-                (labeler_name, labeler_type)
+                (labeler_name, labeler_type),
             )
             result = cursor.fetchone()
 
@@ -173,7 +179,7 @@ def ensure_labeler_exists(data_gen_hash: str, generation_approach: str) -> int:
                     VALUES (%s, %s, %s)
                     RETURNING id
                     """,
-                    (labeler_name, "labeler", labeler_type)
+                    (labeler_name, "labeler", labeler_type),
                 )
                 labeler_id = cursor.fetchone()[0]
                 conn.commit()
@@ -184,39 +190,47 @@ def ensure_labeler_exists(data_gen_hash: str, generation_approach: str) -> int:
 
 def validate_consumables_exist(df: pd.DataFrame) -> tuple[list[str], list[str]]:
     """Validate that referenced consumables exist in database."""
-    if 'consumable_id' not in df.columns:
+    if "consumable_id" not in df.columns:
         raise ValueError("'consumable_id' column not found in data")
 
-    candidate_ids = df['consumable_id'].unique().tolist()
+    candidate_ids = df["consumable_id"].unique().tolist()
 
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             # Check which consumables exist
             cursor.execute(
-                "SELECT id FROM consumable WHERE id = ANY(%s)",
-                (candidate_ids,)
+                "SELECT id FROM consumable WHERE id = ANY(%s)", (candidate_ids,)
             )
-            existing_ids = [str(row[0]) for row in cursor.fetchall()]  # Convert to strings for consistency
+            existing_ids = [
+                str(row[0]) for row in cursor.fetchall()
+            ]  # Convert to strings for consistency
 
     missing_ids = [str(cid) for cid in candidate_ids if str(cid) not in existing_ids]
 
     return existing_ids, missing_ids
 
 
-def process_enhanced_json_data(df: pd.DataFrame, data_gen_hash: str, mlflow_run_id: str,
-                              labeler_id: int, esci_label: str) -> tuple[int, int, int]:
+def process_enhanced_json_data(
+    df: pd.DataFrame,
+    data_gen_hash: str,
+    mlflow_run_id: str,
+    labeler_id: int,
+    esci_label: str,
+) -> tuple[int, int, int]:
     """Process enhanced JSON format data and insert into database."""
 
     # Validate consumables exist
     existing_ids, missing_ids = validate_consumables_exist(df)
     if missing_ids:
-        logger.warning(f"Missing consumables: {missing_ids[:5]}{'...' if len(missing_ids) > 5 else ''}")
+        logger.warning(
+            f"Missing consumables: {missing_ids[:5]}{'...' if len(missing_ids) > 5 else ''}"
+        )
         # Filter out missing consumables
-        df = df[df['consumable_id'].isin(existing_ids)].copy()
+        df = df[df["consumable_id"].isin(existing_ids)].copy()
         logger.info(f"Filtered to {len(df)} records with existing consumables")
 
     # Group by unique queries to avoid duplicates
-    query_groups = df.groupby('query')
+    query_groups = df.groupby("query")
 
     queries_inserted = 0
     examples_inserted = 0
@@ -224,7 +238,6 @@ def process_enhanced_json_data(df: pd.DataFrame, data_gen_hash: str, mlflow_run_
 
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
-
             for query_text, group_df in tqdm(query_groups, desc="Processing queries"):
                 # Parse query filters from first record in group
                 first_record = group_df.iloc[0]
@@ -233,28 +246,30 @@ def process_enhanced_json_data(df: pd.DataFrame, data_gen_hash: str, mlflow_run_
                 query_filters = {}
 
                 # Parse dimensions_json if it exists
-                if 'dimensions_json' in first_record and pd.notna(first_record['dimensions_json']):
+                if "dimensions_json" in first_record and pd.notna(
+                    first_record["dimensions_json"]
+                ):
                     try:
-                        dimensions = json.loads(first_record['dimensions_json'])
+                        dimensions = json.loads(first_record["dimensions_json"])
                         if dimensions:
-                            query_filters['dimensions'] = dimensions
+                            query_filters["dimensions"] = dimensions
                     except (json.JSONDecodeError, TypeError):
                         pass
 
                 # Parse dietary restrictions from dim_* columns
                 dietary_restrictions = []
                 for col in group_df.columns:
-                    if col.startswith('dim_') and pd.notna(first_record[col]):
+                    if col.startswith("dim_") and pd.notna(first_record[col]):
                         value = first_record[col]
                         if value:  # Not empty/null
-                            dim_name = col.replace('dim_', '')
-                            if dim_name == 'dietary_restrictions':
+                            dim_name = col.replace("dim_", "")
+                            if dim_name == "dietary_restrictions":
                                 dietary_restrictions.append(value)
                             else:
                                 query_filters[dim_name] = value
 
                 if dietary_restrictions:
-                    query_filters['dietary_restrictions'] = dietary_restrictions
+                    query_filters["dietary_restrictions"] = dietary_restrictions
 
                 # Insert query
                 cursor.execute(
@@ -263,14 +278,19 @@ def process_enhanced_json_data(df: pd.DataFrame, data_gen_hash: str, mlflow_run_
                     VALUES (%s, %s, %s, %s)
                     RETURNING id
                     """,
-                    (query_text, json.dumps(query_filters) if query_filters else None, data_gen_hash, mlflow_run_id)
+                    (
+                        query_text,
+                        json.dumps(query_filters) if query_filters else None,
+                        data_gen_hash,
+                        mlflow_run_id,
+                    ),
                 )
                 query_id = cursor.fetchone()[0]
                 queries_inserted += 1
 
                 # Insert examples and labels for each candidate in this query group
                 for _, row in group_df.iterrows():
-                    candidate_id = str(row['consumable_id'])
+                    candidate_id = str(row["consumable_id"])
 
                     # Skip if consumable doesn't exist
                     if candidate_id not in existing_ids:
@@ -283,7 +303,7 @@ def process_enhanced_json_data(df: pd.DataFrame, data_gen_hash: str, mlflow_run_
                         VALUES (%s, %s)
                         RETURNING id
                         """,
-                        (query_id, candidate_id)
+                        (query_id, candidate_id),
                     )
                     example_id = cursor.fetchone()[0]
                     examples_inserted += 1
@@ -294,7 +314,12 @@ def process_enhanced_json_data(df: pd.DataFrame, data_gen_hash: str, mlflow_run_
                         INSERT INTO label (labeler_id, example_id, esci_label, auto_label_score)
                         VALUES (%s, %s, %s, %s)
                         """,
-                        (labeler_id, example_id, esci_label, 1.0)  # 1.0 score for synthetic data
+                        (
+                            labeler_id,
+                            example_id,
+                            esci_label,
+                            1.0,
+                        ),  # 1.0 score for synthetic data
                     )
                     labels_inserted += 1
 
@@ -326,7 +351,9 @@ def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
         logger.info("Defaulting to ESCI label 'E' for intent generation")
 
     logger.info(f"Processing run: {run_id} ({run_data['run_name']})")
-    logger.info(f"  Approach: {generation_approach}, Output: {output_type}, ESCI: {esci_label}")
+    logger.info(
+        f"  Approach: {generation_approach}, Output: {output_type}, ESCI: {esci_label}"
+    )
 
     try:
         # Download data
@@ -340,7 +367,7 @@ def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
                 "records_processed": len(df),
                 "queries_inserted": 0,
                 "examples_inserted": 0,
-                "labels_inserted": 0
+                "labels_inserted": 0,
             }
 
         # Ensure labeler exists
@@ -348,8 +375,10 @@ def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
 
         # Process data based on output type
         if output_type in ["enhanced_json", "intent_matches"]:
-            queries_inserted, examples_inserted, labels_inserted = process_enhanced_json_data(
-                df, data_gen_hash, mlflow_run_id, labeler_id, esci_label
+            queries_inserted, examples_inserted, labels_inserted = (
+                process_enhanced_json_data(
+                    df, data_gen_hash, mlflow_run_id, labeler_id, esci_label
+                )
             )
         else:
             raise ValueError(f"Unsupported output_type: {output_type}")
@@ -363,7 +392,7 @@ def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
             "records_processed": len(df),
             "queries_inserted": queries_inserted,
             "examples_inserted": examples_inserted,
-            "labels_inserted": labels_inserted
+            "labels_inserted": labels_inserted,
         }
 
     except Exception as e:
@@ -375,18 +404,28 @@ def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
             "records_processed": 0,
             "queries_inserted": 0,
             "examples_inserted": 0,
-            "labels_inserted": 0
+            "labels_inserted": 0,
         }
 
 
 def main():
     """Main migration execution."""
-    parser = argparse.ArgumentParser(description="Migrate approved synthetic data to database")
+    parser = argparse.ArgumentParser(
+        description="Migrate approved synthetic data to database"
+    )
     parser.add_argument("--experiment-name", help="MLflow experiment name to migrate")
     parser.add_argument("--run-id", help="Specific MLflow run ID to migrate")
-    parser.add_argument("--all-approved", action="store_true", help="Migrate all approved runs")
-    parser.add_argument("--dry-run", action="store_true", help="Preview without making changes")
-    parser.add_argument("--confirm", action="store_true", help="Confirm migration (required for actual migration)")
+    parser.add_argument(
+        "--all-approved", action="store_true", help="Migrate all approved runs"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Preview without making changes"
+    )
+    parser.add_argument(
+        "--confirm",
+        action="store_true",
+        help="Confirm migration (required for actual migration)",
+    )
 
     args = parser.parse_args()
 
@@ -394,7 +433,9 @@ def main():
         parser.error("Must specify --experiment-name, --run-id, or --all-approved")
 
     if not args.dry_run and not args.confirm:
-        parser.error("Must use --confirm flag for actual migration (or --dry-run to preview)")
+        parser.error(
+            "Must use --confirm flag for actual migration (or --dry-run to preview)"
+        )
 
     try:
         # Setup MLflow
@@ -435,7 +476,9 @@ def main():
 
         if dry_runs:
             total_records = sum(r["records_processed"] for r in dry_runs)
-            logger.info(f"[DRY RUN] Would migrate {len(dry_runs)} runs with {total_records} total records")
+            logger.info(
+                f"[DRY RUN] Would migrate {len(dry_runs)} runs with {total_records} total records"
+            )
         else:
             logger.info(f"Successfully migrated: {len(successful)} runs")
             logger.info(f"Failed migrations: {len(errors)} runs")
@@ -445,7 +488,9 @@ def main():
                 total_examples = sum(r["examples_inserted"] for r in successful)
                 total_labels = sum(r["labels_inserted"] for r in successful)
 
-                logger.info(f"Total inserted: {total_queries} queries, {total_examples} examples, {total_labels} labels")
+                logger.info(
+                    f"Total inserted: {total_queries} queries, {total_examples} examples, {total_labels} labels"
+                )
 
         # Show errors
         for error_result in errors:
