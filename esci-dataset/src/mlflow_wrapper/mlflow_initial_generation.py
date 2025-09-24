@@ -789,9 +789,10 @@ def main():
                 for candidate in output_dict.get("candidates", [])
             )
             # total queries is unique query strings across all candidates
+            # logger.info(output_dict.get("candidates", []))
             total_queries = len(
                 set(
-                    query
+                    query["query"]
                     for candidate in output_dict.get("candidates", [])
                     for query in candidate.get("queries", [])
                 )
