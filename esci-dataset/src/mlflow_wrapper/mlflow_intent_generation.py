@@ -10,14 +10,11 @@ import argparse
 import json
 import logging
 import os
-import subprocess
 import sys
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List
 
 import mlflow
 from dotenv import load_dotenv
@@ -32,16 +29,15 @@ if project_root:
 
 # Import the original script functions
 from src.data_generation.intent_generation_approach import (
+    get_intent_set_for_batch,
+    load_food_data,
+    load_intent_sets,
+    save_results,
     setup_dspy_client,
     step1_generate_intents,
-    load_food_data,
     step2_match_intents_to_foods,
     step3_generate_final_queries,
-    save_results,
-    load_intent_sets,
-    get_intent_set_for_batch,
 )
-
 from src.utils import get_git_info
 
 # Configure logging
@@ -87,7 +83,7 @@ def setup_mlflow(experiment_name: str = "intent-generation") -> None:
         raise
 
 
-def log_parameters(args: argparse.Namespace, prompt_versions: Dict[str, str], intent_set_usage: Dict[str, int] = None) -> None:
+def log_parameters(args: argparse.Namespace, prompt_versions: dict[str, str], intent_set_usage: dict[str, int] = None) -> None:
     """Log all parameters to MLflow."""
     # Log all CLI arguments
     mlflow.log_param("script_name", "intent_generation_approach.py")
@@ -140,7 +136,7 @@ def log_step_metrics(step: int, execution_time: float, **kwargs) -> None:
 
 def log_final_metrics(total_time: float, steps_executed: int, stopped_at_intents: bool,
                      intents_count: int, matches_count: int, queries_count: int,
-                     intent_set_usage: Dict[str, int] = None) -> None:
+                     intent_set_usage: dict[str, int] = None) -> None:
     """Log final summary metrics."""
     mlflow.log_metric("total_runtime_seconds", total_time)
     mlflow.log_metric("steps_executed", steps_executed)
@@ -156,7 +152,7 @@ def log_final_metrics(total_time: float, steps_executed: int, stopped_at_intents
             mlflow.log_metric(f"intent_{set_key}_usage", usage_count)
 
 
-def log_artifacts(output_paths: Dict[str, str]) -> None:
+def log_artifacts(output_paths: dict[str, str]) -> None:
     """Log output files as MLflow artifacts."""
     for artifact_name, file_path in output_paths.items():
         if file_path and os.path.exists(file_path):
@@ -167,7 +163,7 @@ def log_artifacts(output_paths: Dict[str, str]) -> None:
                 logger.warning(f"Failed to log artifact {artifact_name}: {e}")
 
 
-def save_processed_prompts(processed_prompts: Dict[str, str], output_dir: str) -> List[str]:
+def save_processed_prompts(processed_prompts: dict[str, str], output_dir: str) -> list[str]:
     """Save processed prompts as separate TXT files."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     saved_files = []
@@ -493,7 +489,6 @@ def main():
             # Process Step 2 batches (sequential or parallel)
             if args.parallel > 1:
                 logger.info(f"Processing Step 2 with {args.parallel} parallel threads...")
-                import functools
 
                 # Execute in parallel
                 with ThreadPoolExecutor(max_workers=args.parallel) as executor:
@@ -566,7 +561,6 @@ def main():
                 # Process Step 3 batches (sequential or parallel)
                 if args.parallel > 1:
                     logger.info(f"Processing Step 3 with {args.parallel} parallel threads...")
-                    import functools
 
                     # Execute in parallel
                     with ThreadPoolExecutor(max_workers=args.parallel) as executor:

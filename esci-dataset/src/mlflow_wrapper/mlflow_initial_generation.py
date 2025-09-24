@@ -10,13 +10,10 @@ import argparse
 import json
 import logging
 import os
-import subprocess
 import sys
-import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
 
 import mlflow
 import pandas as pd
@@ -31,23 +28,22 @@ if project_root:
     sys.path.insert(0, os.path.join(project_root, "esci-dataset"))
 
 # Import the original script functions
-from src.data_generation.initial_generation import (
-    setup_argparser as setup_original_argparser,
-    validate_args,
-    get_api_key,
-    get_template_path,
-    generate_output_filename,
-    load_and_process_data,
-    generate_queries_with_retry,
-    process_in_batches,
-    save_results_as_csv,
-)
-
 from src.data_generation.dspy_schemas import (
     QueryGenerator,
     setup_dspy_model,
 )
-
+from src.data_generation.initial_generation import (
+    generate_output_filename,
+    generate_queries_with_retry,
+    get_api_key,
+    get_template_path,
+    load_and_process_data,
+    save_results_as_csv,
+    validate_args,
+)
+from src.data_generation.initial_generation import (
+    setup_argparser as setup_original_argparser,
+)
 from src.utils import get_git_info
 
 # Configure logging
@@ -149,7 +145,7 @@ def log_query_examples_as_artifact(query_examples_path: str) -> None:
             logger.warning(f"Failed to log query examples artifact: {e}")
 
 
-def save_processed_prompts_as_artifact(processed_prompts: Dict, output_dir: str) -> List[str]:
+def save_processed_prompts_as_artifact(processed_prompts: dict, output_dir: str) -> list[str]:
     """Save processed prompts as separate TXT files."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     saved_files = []
@@ -170,7 +166,7 @@ def save_processed_prompts_as_artifact(processed_prompts: Dict, output_dir: str)
     return saved_files
 
 
-def log_timing_metrics(total_runtime: float, batch_times: List[float]) -> None:
+def log_timing_metrics(total_runtime: float, batch_times: list[float]) -> None:
     """Log timing metrics to MLflow."""
     mlflow.log_metric("total_runtime_seconds", total_runtime)
 
@@ -195,7 +191,7 @@ def log_success_metrics(total_candidates: int, total_queries: int,
         mlflow.log_metric("success_rate_percent", success_rate)
 
 
-def save_batch_details(batch_details: List[Dict], output_dir: str) -> str:
+def save_batch_details(batch_details: list[dict], output_dir: str) -> str:
     """Save detailed batch information as JSON."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     batch_details_path = os.path.join(output_dir, f"batch_details_{timestamp}.json")
@@ -206,7 +202,7 @@ def save_batch_details(batch_details: List[Dict], output_dir: str) -> str:
     return batch_details_path
 
 
-def save_batch_failures(failures: List[Dict], output_dir: str) -> str:
+def save_batch_failures(failures: list[dict], output_dir: str) -> str:
     """Save batch failure information as JSON."""
     if not failures:
         return None
@@ -266,7 +262,7 @@ def process_in_batches_with_tracking(
     query_examples_path: str,
     output_dir: str,
     dietary_columns: list[str] = None,
-) -> Tuple[dict, List[Dict], List[Dict], List[float], Dict]:
+) -> tuple[dict, list[dict], list[dict], list[float], dict]:
     """Enhanced batch processing with detailed tracking."""
     all_candidates = []
     batch_details = []
@@ -385,12 +381,12 @@ def process_in_batches_with_tracking(
 
 
 def process_single_batch_for_parallel(
-    batch_data: Dict,
+    batch_data: dict,
     args: argparse.Namespace,
     template_path: str,
     query_examples_path: str,
     dietary_columns: list[str] = None,
-) -> Tuple[Dict, Dict, float]:
+) -> tuple[dict, dict, float]:
     """Process a single batch for parallel execution."""
     batch_idx = batch_data["batch_idx"]
     batch_df = batch_data["batch_df"]
@@ -509,7 +505,7 @@ def process_in_batches_parallel(
     query_examples_path: str,
     output_dir: str,
     dietary_columns: list[str] = None,
-) -> Tuple[dict, List[Dict], List[Dict], List[float], Dict]:
+) -> tuple[dict, list[dict], list[dict], list[float], dict]:
     """Enhanced batch processing with parallel execution using dspy.Parallel."""
     all_candidates = []
     batch_details = []
@@ -539,8 +535,8 @@ def process_in_batches_parallel(
         })
 
     # Execute batches in parallel using concurrent.futures for better control
-    from concurrent.futures import ThreadPoolExecutor
     import functools
+    from concurrent.futures import ThreadPoolExecutor
 
     logger.info(f"Starting parallel execution with {args.parallel} threads...")
 
@@ -755,7 +751,7 @@ def main():
 
             # Print summary
             if successful_batches == len(batch_details):
-                logger.info(f"✅ All batches completed successfully!")
+                logger.info("✅ All batches completed successfully!")
             else:
                 logger.warning(f"⚠️ {failed_batches} out of {len(batch_details)} batches failed")
 

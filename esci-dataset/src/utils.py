@@ -2,10 +2,9 @@
 
 import os
 import subprocess
-from typing import Dict
 
 
-def get_git_info() -> Dict[str, str]:
+def get_git_info() -> dict[str, str]:
     """Get git commit hash (short) and branch name.
 
     Returns:
@@ -26,6 +25,6 @@ def get_git_info() -> Dict[str, str]:
         ).decode().strip()
 
         return {"commit_hash": commit_hash, "branch_name": branch_name}
-    except Exception as e:
+    except Exception:
         # Fallback values if git commands fail
         return {"commit_hash": "unknown", "branch_name": "unknown"}

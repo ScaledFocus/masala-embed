@@ -97,3 +97,6 @@ migrate-data:
 	uv run python database/scripts/migrate_synthetic_data.py \
 		$(if $(EXPERIMENT),--experiment-name $(EXPERIMENT),--all-approved) \
 		--confirm
+
+hash:
+	git rev-parse --short HEAD

@@ -458,7 +458,7 @@ def save_as_csv(output_data: dict, output_path: str, original_df: pd.DataFrame =
 
         except Exception as e:
             logger.error(f"Failed to convert output to DataFrame: {e}")
-            raise e    
+            raise e
 
     # Save to CSV
     df.to_csv(output_path, index=False, encoding="utf-8")

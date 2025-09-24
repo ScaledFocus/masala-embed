@@ -6,8 +6,9 @@ Usage:
     python approve_run.py <run_id1> <run_id2> <run_id3>
 """
 
-import sys
 import os
+import sys
+
 import mlflow
 
 # Setup MLflow
@@ -42,7 +43,7 @@ for run_id in run_ids:
 
         # Set approval tag
         client.set_tag(run_id, "data_status", "approved")
-        print(f"  ✅ Approved for migration")
+        print("  ✅ Approved for migration")
         success_count += 1
 
     except Exception as e:

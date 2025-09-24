@@ -22,13 +22,10 @@ import logging
 import os
 import sys
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
 
 import mlflow
 import pandas as pd
 from dotenv import load_dotenv
-from psycopg2.extras import execute_values
 from tqdm import tqdm
 
 load_dotenv()
@@ -59,7 +56,7 @@ def setup_mlflow() -> None:
     mlflow.set_tracking_uri(f"file://{mlflow_tracking_uri}")
 
 
-def get_approved_runs(experiment_name: str = None, run_id: str = None) -> List[Dict]:
+def get_approved_runs(experiment_name: str = None, run_id: str = None) -> list[dict]:
     """Get MLflow runs that are approved for migration."""
     if run_id:
         # Get specific run
@@ -185,7 +182,7 @@ def ensure_labeler_exists(data_gen_hash: str, generation_approach: str) -> int:
     return labeler_id
 
 
-def validate_consumables_exist(df: pd.DataFrame) -> Tuple[List[str], List[str]]:
+def validate_consumables_exist(df: pd.DataFrame) -> tuple[list[str], list[str]]:
     """Validate that referenced consumables exist in database."""
     if 'consumable_id' not in df.columns:
         raise ValueError("'consumable_id' column not found in data")
@@ -207,7 +204,7 @@ def validate_consumables_exist(df: pd.DataFrame) -> Tuple[List[str], List[str]]:
 
 
 def process_enhanced_json_data(df: pd.DataFrame, data_gen_hash: str, mlflow_run_id: str,
-                              labeler_id: int, esci_label: str) -> Tuple[int, int, int]:
+                              labeler_id: int, esci_label: str) -> tuple[int, int, int]:
     """Process enhanced JSON format data and insert into database."""
 
     # Validate consumables exist
@@ -314,7 +311,7 @@ def mark_run_as_migrated(run_id: str) -> None:
     logger.info(f"Marked run {run_id} as migrated")
 
 
-def migrate_run(run_data: Dict, dry_run: bool = True) -> Dict:
+def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
     """Migrate a single MLflow run to database."""
     run_id = run_data["run_id"]
     data_gen_hash = run_data["data_gen_hash"]
@@ -326,7 +323,7 @@ def migrate_run(run_data: Dict, dry_run: bool = True) -> Dict:
     # For intent generation, default to "E" (Exact match) if esci_label is None
     if generation_approach == "intent" and esci_label is None:
         esci_label = "E"
-        logger.info(f"Defaulting to ESCI label 'E' for intent generation")
+        logger.info("Defaulting to ESCI label 'E' for intent generation")
 
     logger.info(f"Processing run: {run_id} ({run_data['run_name']})")
     logger.info(f"  Approach: {generation_approach}, Output: {output_type}, ESCI: {esci_label}")

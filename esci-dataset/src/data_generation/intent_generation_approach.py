@@ -17,7 +17,6 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List
 
 import dspy
 import pandas as pd
@@ -42,7 +41,7 @@ from src.evals.dietary_evals import apply_complete_dietary_evaluation  # noqa: E
 # Custom Pydantic Models for Intent Generation Approach
 
 
-def load_intent_sets(intent_sets_dir: str) -> List[List[str]]:
+def load_intent_sets(intent_sets_dir: str) -> list[list[str]]:
     """Load all intent sets from directory."""
     logger.info(f"Loading intent sets from: {intent_sets_dir}")
 
@@ -52,7 +51,7 @@ def load_intent_sets(intent_sets_dir: str) -> List[List[str]]:
     # Load summary file first to get file list
     summary_path = os.path.join(intent_sets_dir, "intent_sets_summary.json")
     if os.path.exists(summary_path):
-        with open(summary_path, 'r', encoding='utf-8') as f:
+        with open(summary_path, encoding='utf-8') as f:
             summary = json.load(f)
         total_sets = summary["generation_info"]["total_sets"]
         logger.info(f"Found {total_sets} intent sets in summary")
@@ -65,7 +64,7 @@ def load_intent_sets(intent_sets_dir: str) -> List[List[str]]:
     for i in range(1, total_sets + 1):
         file_path = os.path.join(intent_sets_dir, f"intent_set_{i:02d}.json")
         if os.path.exists(file_path):
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 intent_set_data = json.load(f)
                 intent_sets.append(intent_set_data['intents'])
                 intent_set_metadata.append(intent_set_data['metadata'])
@@ -80,8 +79,8 @@ def load_intent_sets(intent_sets_dir: str) -> List[List[str]]:
     return intent_sets, intent_set_metadata
 
 
-def get_intent_set_for_batch(batch_num: int, intent_sets: List[List[str]],
-                           rotation_frequency: int) -> tuple[List[str], int]:
+def get_intent_set_for_batch(batch_num: int, intent_sets: list[list[str]],
+                           rotation_frequency: int) -> tuple[list[str], int]:
     """Get the appropriate intent set for current batch."""
     intent_set_index = (batch_num // rotation_frequency) % len(intent_sets)
     return intent_sets[intent_set_index], intent_set_index

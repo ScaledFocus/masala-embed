@@ -15,7 +15,7 @@ import random
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -28,7 +28,6 @@ if project_root:
     sys.path.insert(0, str(project_root))
     sys.path.insert(0, os.path.join(project_root, "esci-dataset"))
 
-from src.data_generation.dspy_schemas import setup_dspy_model  # noqa: E402
 from src.data_generation.intent_generation_approach import (  # noqa: E402
     IntentGenerator,
     setup_dspy_client,
@@ -46,7 +45,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_theme_configurations() -> Dict[str, Dict[str, Any]]:
+def get_theme_configurations() -> dict[str, dict[str, Any]]:
     """Define 10 theme configurations for prompt weighting."""
     return {
         "quick_convenient": {
@@ -145,13 +144,13 @@ def get_theme_configurations() -> Dict[str, Dict[str, Any]]:
 def load_base_prompt(prompt_path: str) -> str:
     """Load the base intent generation prompt."""
     try:
-        with open(prompt_path, 'r', encoding='utf-8') as f:
+        with open(prompt_path, encoding='utf-8') as f:
             return f.read()
     except FileNotFoundError:
         raise FileNotFoundError(f"Base prompt not found at: {prompt_path}")
 
 
-def create_themed_prompt_variation(base_prompt: str, theme_config: Dict[str, Any]) -> str:
+def create_themed_prompt_variation(base_prompt: str, theme_config: dict[str, Any]) -> str:
     """Create a themed variation of the base prompt by adjusting emphasis and examples."""
 
     # Start with the base prompt
@@ -163,7 +162,7 @@ def create_themed_prompt_variation(base_prompt: str, theme_config: Dict[str, Any
 
     # Add theme-specific examples
     if theme_config['add_examples']:
-        theme_intro += f"Include variations of these theme-specific examples:\n"
+        theme_intro += "Include variations of these theme-specific examples:\n"
         for example in theme_config['add_examples']:
             theme_intro += f"- \"{example}\"\n"
 
@@ -187,8 +186,8 @@ def create_themed_prompt_variation(base_prompt: str, theme_config: Dict[str, Any
     return themed_prompt
 
 
-def generate_themed_intents(theme_name: str, theme_config: Dict[str, Any],
-                          base_prompt: str, num_intents: int = 50) -> List[str]:
+def generate_themed_intents(theme_name: str, theme_config: dict[str, Any],
+                          base_prompt: str, num_intents: int = 50) -> list[str]:
     """Generate intents for a specific theme using DSPy."""
     logger.info(f"Generating {num_intents} intents for theme: {theme_name}")
 
@@ -215,8 +214,8 @@ def generate_themed_intents(theme_name: str, theme_config: Dict[str, Any],
         raise
 
 
-def create_shuffled_intent_sets(all_themed_intents: Dict[str, List[str]],
-                              num_sets: int = 10) -> List[Dict[str, Any]]:
+def create_shuffled_intent_sets(all_themed_intents: dict[str, list[str]],
+                              num_sets: int = 10) -> list[dict[str, Any]]:
     """Create shuffled intent sets from all themed intents."""
     logger.info(f"Creating {num_sets} shuffled intent sets")
 
@@ -273,7 +272,7 @@ def create_shuffled_intent_sets(all_themed_intents: Dict[str, List[str]],
     return shuffled_sets
 
 
-def save_intent_sets(intent_sets: List[Dict[str, Any]], output_dir: str) -> List[str]:
+def save_intent_sets(intent_sets: list[dict[str, Any]], output_dir: str) -> list[str]:
     """Save intent sets as JSON files."""
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -411,7 +410,7 @@ def main():
         print(f"\n✅ Success! Generated {len(intent_sets)} shuffled intent sets")
         print(f"📊 Total themed intents: {total_themed_intents}")
         print(f"📁 Intent sets saved to: {args.output_dir}")
-        print(f"🔀 Each set contains mixed intents from all themes (divided equally)")
+        print("🔀 Each set contains mixed intents from all themes (divided equally)")
         print(f"📄 Files created: {len(saved_files)}")
 
     except Exception as e:
