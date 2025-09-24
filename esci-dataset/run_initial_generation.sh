@@ -5,12 +5,13 @@
 
 # Default parameters (edit these as needed)
 ESCI_LABEL="E"
-MODEL="gpt-5-mini"
-BATCH_SIZE=20
-QUERIES_PER_ITEM=3
+MODEL="gpt-5"
+BATCH_SIZE=50
+QUERIES_PER_ITEM=2
 TEMPERATURE=1.2
 MAX_RETRIES=3
-LIMIT=40
+LIMIT=100
+PARALLEL=4
 DIETARY_FLAG=""
 OUTPUT_PATH=""
 TEMPLATE_PATH=""
@@ -25,6 +26,7 @@ uv run python src/mlflow_wrapper/mlflow_initial_generation.py \
 	--queries_per_item $QUERIES_PER_ITEM \
 	--temperature $TEMPERATURE \
 	--max_retries $MAX_RETRIES \
+	--parallel $PARALLEL \
 	$(if [ -n "$LIMIT" ]; then echo "--limit $LIMIT"; fi) \
 	$(if [ -n "$DIETARY_FLAG" ]; then echo "--dietary_flag"; fi) \
 	$(if [ -n "$OUTPUT_PATH" ]; then echo "--output_path $OUTPUT_PATH"; fi) \
