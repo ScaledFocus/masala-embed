@@ -98,6 +98,7 @@ def log_parameters(args: argparse.Namespace, template_path: str, query_examples_
     mlflow.log_param("temperature", args.temperature)
     mlflow.log_param("queries_per_item", args.queries_per_item)
     mlflow.log_param("max_retries", args.max_retries)
+    mlflow.log_param("start_idx", args.start_idx)
 
     # Log paths
     mlflow.log_param("template_path", template_path)
@@ -240,9 +241,10 @@ def generate_run_name(args: argparse.Namespace) -> str:
         if template_name.startswith("v") and ".txt" in template_name:
             template_version = template_name.replace(".txt", "")
 
+    start_suffix = f"-start{args.start_idx}" if args.start_idx > 0 else ""
     return (
         f"initial-{args.esci_label}-{args.model}-"
-        f"batch{args.batch_size}-limit{args.limit}-"
+        f"batch{args.batch_size}-limit{args.limit}{start_suffix}-"
         f"qpi{args.queries_per_item}-{template_version}-{timestamp}"
     )
 
@@ -423,6 +425,13 @@ def main():
         mlflow.set_tag("model", args.model)
         mlflow.set_tag(f"batch-{args.batch_size}", "true")
         mlflow.set_tag(f"limit-{args.limit}", "true")
+
+        # Add resume/restart tracking
+        if args.start_idx > 0:
+            mlflow.set_tag("resumed_job", "true")
+            mlflow.set_tag(f"start-idx-{args.start_idx}", "true")
+        else:
+            mlflow.set_tag("resumed_job", "false")
 
         # Set approval tag for migration workflow
         mlflow.set_tag("data_status", "pending_review")

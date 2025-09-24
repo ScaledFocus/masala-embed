@@ -145,6 +145,13 @@ Examples:
         help="Number of queries to generate per food item (default: 5)",
     )
 
+    parser.add_argument(
+        "--start_idx",
+        type=int,
+        default=0,
+        help="Starting index for resuming interrupted jobs (default: 0)",
+    )
+
     # Output format is always CSV in modernized version
 
     parser.add_argument(
@@ -173,6 +180,9 @@ def validate_args(args: argparse.Namespace) -> None:
 
     if args.queries_per_item < 1:
         raise ValueError("queries_per_item must be at least 1")
+
+    if args.start_idx < 0:
+        raise ValueError("start_idx must be non-negative")
 
 
 def get_api_key(args: argparse.Namespace) -> str:
@@ -214,6 +224,7 @@ def generate_output_filename(args: argparse.Namespace) -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     dietary_suffix = "_dietary" if args.dietary_flag else ""
     limit_suffix = f"_limit{args.limit}" if args.limit else ""
+    start_suffix = f"_start{args.start_idx}" if args.start_idx > 0 else ""
 
     # Extract prompt version from template path
     prompt_version = "v1"  # default
@@ -225,7 +236,7 @@ def generate_output_filename(args: argparse.Namespace) -> str:
     # Always use CSV format in modernized version
     filename = (
         f"queries_{args.esci_label}_batch{args.batch_size}{limit_suffix}"
-        f"{dietary_suffix}_{prompt_version}_{timestamp}.csv"
+        f"{start_suffix}{dietary_suffix}_{prompt_version}_{timestamp}.csv"
     )
 
     # Create output directory if it doesn't exist
@@ -254,10 +265,14 @@ def load_and_process_data(args: argparse.Namespace) -> tuple[pd.DataFrame, list[
         df = df.sample(frac=1, random_state=42).reset_index(drop=True)
         logger.info("Shuffled entire dataset with seed=42")
 
-        # Apply limit AFTER shuffling to get truly random subset
+        # Apply start_idx and limit AFTER shuffling
+        if args.start_idx > 0:
+            df = df.iloc[args.start_idx:]
+            logger.info(f"Resumed from index {args.start_idx}, {len(df)} records remaining")
+
         if args.limit is not None:
             df = df.head(args.limit)
-            logger.info(f"Selected top {len(df)} records after shuffling")
+            logger.info(f"Selected top {len(df)} records after shuffling and start_idx")
 
         # Always apply dietary evaluation for enhanced JSON structure
         logger.info("Applying dietary evaluation...")
