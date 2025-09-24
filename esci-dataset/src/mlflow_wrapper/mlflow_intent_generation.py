@@ -36,6 +36,8 @@ from src.data_generation.intent_generation_approach import (
     step2_match_intents_to_foods,
     step3_generate_final_queries,
     save_results,
+    load_intent_sets,
+    get_intent_set_for_batch,
 )
 
 from src.utils import get_git_info
@@ -76,7 +78,7 @@ def setup_mlflow(experiment_name: str = "intent-generation") -> None:
         raise
 
 
-def log_parameters(args: argparse.Namespace, prompt_versions: Dict[str, str]) -> None:
+def log_parameters(args: argparse.Namespace, prompt_versions: Dict[str, str], intent_set_usage: Dict[str, int] = None) -> None:
     """Log all parameters to MLflow."""
     # Log all CLI arguments
     mlflow.log_param("script_name", "intent_generation_approach.py")
@@ -93,9 +95,15 @@ def log_parameters(args: argparse.Namespace, prompt_versions: Dict[str, str]) ->
     mlflow.log_param("step2_prompt", args.step2_prompt)
     mlflow.log_param("step3_prompt", args.step3_prompt)
     mlflow.log_param("start_idx", args.start_idx)
+    mlflow.log_param("use_intent_sets", args.use_intent_sets or "false")
+    mlflow.log_param("intent_set_rotation", args.intent_set_rotation)
 
     # Log derived parameters
     mlflow.log_param("prompt_versions_used", json.dumps(prompt_versions))
+
+    # Log intent set usage if available
+    if intent_set_usage:
+        mlflow.log_param("intent_sets_used", json.dumps(intent_set_usage))
 
     # Log generation approach parameters for migration tracking
     mlflow.log_param("generation_approach", "intent")
@@ -121,7 +129,8 @@ def log_step_metrics(step: int, execution_time: float, **kwargs) -> None:
 
 
 def log_final_metrics(total_time: float, steps_executed: int, stopped_at_intents: bool,
-                     intents_count: int, matches_count: int, queries_count: int) -> None:
+                     intents_count: int, matches_count: int, queries_count: int,
+                     intent_set_usage: Dict[str, int] = None) -> None:
     """Log final summary metrics."""
     mlflow.log_metric("total_runtime_seconds", total_time)
     mlflow.log_metric("steps_executed", steps_executed)
@@ -129,6 +138,12 @@ def log_final_metrics(total_time: float, steps_executed: int, stopped_at_intents
     mlflow.log_metric("intents_generated", intents_count)
     mlflow.log_metric("successful_matches", matches_count)
     mlflow.log_metric("total_queries_generated", queries_count)
+
+    # Log intent set usage metrics
+    if intent_set_usage:
+        mlflow.log_metric("intent_sets_used_count", len(intent_set_usage))
+        for set_key, usage_count in intent_set_usage.items():
+            mlflow.log_metric(f"intent_{set_key}_usage", usage_count)
 
 
 def log_artifacts(output_paths: Dict[str, str]) -> None:
@@ -212,6 +227,17 @@ def setup_argparser() -> argparse.ArgumentParser:
         default=0,
         help="Starting index for resuming interrupted jobs (default: 0)",
     )
+    parser.add_argument(
+        "--use-intent-sets",
+        default=None,
+        help="Path to pre-generated intent sets directory (enables rotation)",
+    )
+    parser.add_argument(
+        "--intent-set-rotation",
+        type=int,
+        default=1,
+        help="Change intent set every N batches (default: 1)",
+    )
 
     # MLflow-specific arguments
     parser.add_argument("--experiment-name", default="intent-generation", help="MLflow experiment name")
@@ -228,6 +254,15 @@ def main():
     # Validate start_idx
     if args.start_idx < 0:
         raise ValueError("start_idx must be non-negative")
+
+    # Validate intent set rotation parameters
+    if args.intent_set_rotation < 1:
+        raise ValueError("intent_set_rotation must be at least 1")
+
+    if args.use_intent_sets:
+        intent_sets_full_path = os.path.join(project_root, args.use_intent_sets)
+        if not os.path.exists(intent_sets_full_path):
+            raise ValueError(f"Intent sets directory not found: {intent_sets_full_path}")
 
     # Setup MLflow
     setup_mlflow(args.experiment_name)
@@ -256,6 +291,13 @@ def main():
         else:
             mlflow.set_tag("resumed_job", "false")
 
+        # Add intent set rotation tracking
+        if args.use_intent_sets:
+            mlflow.set_tag("uses_rotating_intent_sets", "true")
+            mlflow.set_tag(f"rotation_frequency_{args.intent_set_rotation}", "true")
+        else:
+            mlflow.set_tag("uses_rotating_intent_sets", "false")
+
         # Set approval tag for migration workflow
         mlflow.set_tag("data_status", "pending_review")
 
@@ -275,26 +317,43 @@ def main():
             logger.info("Starting Step 1: Generate intents")
             step1_start = time.time()
 
-            # Capture processed step1 prompt for logging
-            step1_prompt_path = args.step1_prompt or "prompts/intent_generation/v1.1_intent_generation.txt"
-            step1_full_path = os.path.join(project_root, step1_prompt_path)
-            try:
-                with open(step1_full_path, encoding="utf-8") as f:
-                    step1_processed_prompt = f.read()
-                # Apply the same replacements as in step1_generate_intents
-                step1_processed_prompt = step1_processed_prompt.replace(
-                    "Generate 50 diverse", f"Generate {args.num_intents} diverse"
-                )
-                step1_processed_prompt = step1_processed_prompt.replace(
-                    "Return a simple list of 50 search queries",
-                    f"Return a simple list of {args.num_intents} search queries",
-                )
-            except FileNotFoundError:
-                step1_processed_prompt = f"Error: Prompt file not found at {step1_full_path}"
+            # Intent management: either load pre-generated sets or generate new intents
+            if args.use_intent_sets:
+                # Load pre-generated intent sets for rotation
+                intent_sets_full_path = os.path.join(project_root, args.use_intent_sets)
+                intent_sets, intent_set_metadata = load_intent_sets(intent_sets_full_path)
+                logger.info(f"Loaded {len(intent_sets)} pre-generated intent sets")
+                logger.info(f"Intent set rotation frequency: every {args.intent_set_rotation} batch(es)")
+                intents = None  # Will be set per batch
+                intent_set_usage = {}  # Track which sets are used
+                step1_processed_prompt = "Using pre-generated intent sets (step1 prompt not applicable)"
+            else:
+                # Generate intents (original behavior) and capture processed prompt
+                # Capture processed step1 prompt for logging
+                step1_prompt_path = args.step1_prompt or "prompts/intent_generation/v1.1_intent_generation.txt"
+                step1_full_path = os.path.join(project_root, step1_prompt_path)
+                try:
+                    with open(step1_full_path, encoding="utf-8") as f:
+                        step1_processed_prompt = f.read()
+                    # Apply the same replacements as in step1_generate_intents
+                    step1_processed_prompt = step1_processed_prompt.replace(
+                        "Generate 50 diverse", f"Generate {args.num_intents} diverse"
+                    )
+                    step1_processed_prompt = step1_processed_prompt.replace(
+                        "Return a simple list of 50 search queries",
+                        f"Return a simple list of {args.num_intents} search queries",
+                    )
+                except FileNotFoundError:
+                    step1_processed_prompt = f"Error: Prompt file not found at {step1_full_path}"
 
-            intents = step1_generate_intents(args.num_intents, args.step1_prompt)
+                intents = step1_generate_intents(args.num_intents, args.step1_prompt)
+                intent_sets = None
+                intent_set_metadata = None
+                intent_set_usage = None
+
             step1_time = time.time() - step1_start
-            log_step_metrics(1, step1_time, intents_generated=len(intents))
+            intents_count = len(intents) if intents else 0
+            log_step_metrics(1, step1_time, intents_generated=intents_count)
 
             # Load food data
             food_df, dietary_columns = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag, start_idx=args.start_idx)
@@ -334,8 +393,24 @@ def main():
                 end_idx = min(start_idx + args.batch_size, len(food_df))
                 batch_df = food_df.iloc[start_idx:end_idx]
 
+                # Determine which intents to use for this batch
+                if intent_sets:
+                    # Use rotating intent sets
+                    current_intents, intent_set_index = get_intent_set_for_batch(
+                        batch_idx, intent_sets, args.intent_set_rotation
+                    )
+                    logger.info(
+                        f"Batch {batch_idx + 1}/{total_batches} using intent set #{intent_set_index + 1}"
+                    )
+                    # Track intent set usage
+                    set_key = f"set_{intent_set_index + 1}"
+                    intent_set_usage[set_key] = intent_set_usage.get(set_key, 0) + 1
+                else:
+                    # Use single generated intents (original behavior)
+                    current_intents = intents
+
                 # Smart matching for this batch
-                batch_matches = step2_match_intents_to_foods(intents, batch_df, args.dietary_flag, args.step2_prompt)
+                batch_matches = step2_match_intents_to_foods(current_intents, batch_df, args.dietary_flag, args.step2_prompt)
                 all_matches["matches"].extend(batch_matches["matches"])
 
             step2_time = time.time() - step2_start
@@ -397,7 +472,8 @@ def main():
             # Save results
             output_paths = save_results(
                 intents, all_matches, all_final_queries, food_df,
-                args.output_dir, args.stop_at_intents, args.dietary_flag, dietary_columns
+                args.output_dir, args.stop_at_intents, args.dietary_flag, dietary_columns,
+                intent_set_usage
             )
 
             # Save processed prompts as separate TXT files
@@ -417,16 +493,17 @@ def main():
                 "step2": args.step2_prompt or "v1.2_intent_matching.txt",
                 "step3": (args.step3_prompt or "v1.3_intent_query_generation.txt") if not args.stop_at_intents else None
             }
-            log_parameters(args, prompt_versions)
+            log_parameters(args, prompt_versions, intent_set_usage)
 
             # Log final metrics
             total_time = time.time() - total_start_time
             steps_executed = 2 if args.stop_at_intents else 3
             queries_count = len(all_final_queries) if not args.stop_at_intents else len(all_matches["matches"])
 
+            intents_count = len(intents) if intents else (len(intent_sets) if intent_sets else 0)
             log_final_metrics(
                 total_time, steps_executed, args.stop_at_intents,
-                len(intents), len(all_matches["matches"]), queries_count
+                intents_count, len(all_matches["matches"]), queries_count, intent_set_usage
             )
 
             # Log artifacts
@@ -435,8 +512,9 @@ def main():
             # Success summary
             logger.info(f"MLflow run completed successfully: {run.info.run_id}")
             if args.stop_at_intents:
+                intents_count_msg = len(intents) if intents else len(intent_sets) if intent_sets else 0
                 logger.info(
-                    f"Generated {len(intents)} intents matched to "
+                    f"Used {intents_count_msg} intents matched to "
                     f"{len(all_matches['matches'])} foods (stopped at intents)"
                 )
             else:

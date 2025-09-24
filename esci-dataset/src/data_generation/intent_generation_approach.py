@@ -17,6 +17,7 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import List
 
 import dspy
 import pandas as pd
@@ -39,6 +40,51 @@ from src.data_generation.dspy_schemas import setup_dspy_model  # noqa: E402
 from src.evals.dietary_evals import apply_complete_dietary_evaluation  # noqa: E402
 
 # Custom Pydantic Models for Intent Generation Approach
+
+
+def load_intent_sets(intent_sets_dir: str) -> List[List[str]]:
+    """Load all intent sets from directory."""
+    logger.info(f"Loading intent sets from: {intent_sets_dir}")
+
+    intent_sets = []
+    intent_set_metadata = []
+
+    # Load summary file first to get file list
+    summary_path = os.path.join(intent_sets_dir, "intent_sets_summary.json")
+    if os.path.exists(summary_path):
+        with open(summary_path, 'r', encoding='utf-8') as f:
+            summary = json.load(f)
+        total_sets = summary["generation_info"]["total_sets"]
+        logger.info(f"Found {total_sets} intent sets in summary")
+    else:
+        # Fallback: try to find intent set files directly
+        total_sets = 10  # Default expectation
+        logger.warning(f"Summary file not found, assuming {total_sets} intent sets")
+
+    # Load each intent set file
+    for i in range(1, total_sets + 1):
+        file_path = os.path.join(intent_sets_dir, f"intent_set_{i:02d}.json")
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                intent_set_data = json.load(f)
+                intent_sets.append(intent_set_data['intents'])
+                intent_set_metadata.append(intent_set_data['metadata'])
+                logger.info(f"Loaded intent set {i} with {len(intent_set_data['intents'])} intents")
+        else:
+            raise FileNotFoundError(f"Intent set file not found: {file_path}")
+
+    if not intent_sets:
+        raise ValueError(f"No intent set files found in {intent_sets_dir}")
+
+    logger.info(f"Successfully loaded {len(intent_sets)} intent sets")
+    return intent_sets, intent_set_metadata
+
+
+def get_intent_set_for_batch(batch_num: int, intent_sets: List[List[str]],
+                           rotation_frequency: int) -> tuple[List[str], int]:
+    """Get the appropriate intent set for current batch."""
+    intent_set_index = (batch_num // rotation_frequency) % len(intent_sets)
+    return intent_sets[intent_set_index], intent_set_index
 
 
 class IntentList(BaseModel):
@@ -195,7 +241,7 @@ def step1_generate_intents(num_intents: int = 50, prompt_path: str = None) -> li
     # Generate intents using DSPy
     try:
         generator = IntentGenerator()
-        result = generator.forward(intent_prompt)
+        result = generator(intent_prompt)
         intents = result.intents
 
         logger.info(f"Generated {len(intents)} user intents")
@@ -287,7 +333,7 @@ def step2_match_intents_to_foods(intents: list[str], food_df: pd.DataFrame, diet
     # Get matches using DSPy
     try:
         matcher = IntentMatcher()
-        result = matcher.forward(matching_prompt)
+        result = matcher(matching_prompt)
 
         # Convert Pydantic result to dict format for backward compatibility
         matches = {"matches": [match.dict() for match in result.matches]}
@@ -352,7 +398,7 @@ def step3_generate_final_queries(
     # Generate queries using DSPy
     try:
         query_generator = IntentQueryGenerator()
-        result = query_generator.forward(batch_prompt)
+        result = query_generator(batch_prompt)
 
         # Debug: Check the result structure
         logger.info(f"Result type: {type(result)}")
@@ -428,6 +474,7 @@ def save_results(
     stop_at_intents: bool = False,
     dietary_flag: bool = False,
     dietary_columns: list[str] = None,
+    intent_set_usage: dict = None,
 ):
     """Save all results to files."""
     # Create output directory
@@ -435,13 +482,24 @@ def save_results(
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Save original intents
+    # Save intents information
     intents_path = f"{output_dir}/intent_generation_intents_{timestamp}.txt"
     with open(intents_path, "w", encoding="utf-8") as f:
-        f.write("ORIGINAL USER INTENTS GENERATED (Step 1):\n")
-        f.write("=" * 50 + "\n")
-        for i, intent in enumerate(intents, 1):
-            f.write(f"{i:2d}. {intent}\n")
+        if intents:
+            # Single generated intent set
+            f.write("ORIGINAL USER INTENTS GENERATED (Step 1):\n")
+            f.write("=" * 50 + "\n")
+            for i, intent in enumerate(intents, 1):
+                f.write(f"{i:2d}. {intent}\n")
+        else:
+            # Used pre-generated rotating intent sets
+            f.write("ROTATING INTENT SETS USED:\n")
+            f.write("=" * 50 + "\n")
+            f.write("This run used pre-generated rotating intent sets.\n")
+            if intent_set_usage:
+                f.write("\nIntent set usage summary:\n")
+                for set_key, usage_count in intent_set_usage.items():
+                    f.write(f"{set_key}: {usage_count} batch(es)\n")
 
     # Save matches (JSON and CSV formats)
     matches_path = None
@@ -557,12 +615,30 @@ def main():
         default=0,
         help="Starting index for resuming interrupted jobs (default: 0)",
     )
+    parser.add_argument(
+        "--use-intent-sets",
+        default=None,
+        help="Path to pre-generated intent sets directory (enables rotation)",
+    )
+    parser.add_argument(
+        "--intent-set-rotation",
+        type=int,
+        default=1,
+        help="Change intent set every N batches (default: 1)",
+    )
 
     args = parser.parse_args()
 
     # Validate start_idx
     if args.start_idx < 0:
         raise ValueError("start_idx must be non-negative")
+
+    # Validate intent set rotation parameters
+    if args.intent_set_rotation < 1:
+        raise ValueError("intent_set_rotation must be at least 1")
+
+    if args.use_intent_sets and not os.path.exists(args.use_intent_sets):
+        raise ValueError(f"Intent sets directory not found: {args.use_intent_sets}")
 
     logger.info(
         f"Starting intent-driven query generation with model: {args.model}, "
@@ -573,8 +649,20 @@ def main():
         # Setup DSPy
         setup_dspy_client(args.model, args.temperature)
 
-        # Step 1: Generate pure user intents
-        intents = step1_generate_intents(args.num_intents, args.step1_prompt)
+        # Intent management: either load pre-generated sets or generate new intents
+        if args.use_intent_sets:
+            # Load pre-generated intent sets for rotation
+            intent_sets, intent_set_metadata = load_intent_sets(args.use_intent_sets)
+            logger.info(f"Loaded {len(intent_sets)} pre-generated intent sets")
+            logger.info(f"Intent set rotation frequency: every {args.intent_set_rotation} batch(es)")
+            intents = None  # Will be set per batch
+            intent_set_usage = {}  # Track which sets are used
+        else:
+            # Generate intents (original behavior)
+            intents = step1_generate_intents(args.num_intents, args.step1_prompt)
+            intent_sets = None
+            intent_set_metadata = None
+            intent_set_usage = None
 
         # Load food data
         food_df, dietary_columns = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag, start_idx=args.start_idx)
@@ -589,13 +677,30 @@ def main():
             end_idx = min(start_idx + args.batch_size, len(food_df))
             batch_df = food_df.iloc[start_idx:end_idx]
 
-            logger.info(
-                f"Processing batch {batch_idx + 1}/{total_batches} "
-                f"({len(batch_df)} foods)"
-            )
+            # Determine which intents to use for this batch
+            if intent_sets:
+                # Use rotating intent sets
+                current_intents, intent_set_index = get_intent_set_for_batch(
+                    batch_idx, intent_sets, args.intent_set_rotation
+                )
+                logger.info(
+                    f"Processing batch {batch_idx + 1}/{total_batches} "
+                    f"({len(batch_df)} foods) with intent set #{intent_set_index + 1}"
+                )
+
+                # Track intent set usage
+                set_key = f"set_{intent_set_index + 1}"
+                intent_set_usage[set_key] = intent_set_usage.get(set_key, 0) + 1
+            else:
+                # Use single generated intents (original behavior)
+                current_intents = intents
+                logger.info(
+                    f"Processing batch {batch_idx + 1}/{total_batches} "
+                    f"({len(batch_df)} foods)"
+                )
 
             # Step 2: Smart matching for this batch
-            batch_matches = step2_match_intents_to_foods(intents, batch_df, args.dietary_flag, args.step2_prompt)
+            batch_matches = step2_match_intents_to_foods(current_intents, batch_df, args.dietary_flag, args.step2_prompt)
 
             # Accumulate matches
             all_matches["matches"].extend(batch_matches["matches"])
@@ -611,15 +716,24 @@ def main():
 
         # Save results
         output_paths = save_results(
-            intents, all_matches, final_queries, food_df, args.output_dir, args.stop_at_intents, args.dietary_flag, dietary_columns
+            intents, all_matches, final_queries, food_df, args.output_dir, args.stop_at_intents,
+            args.dietary_flag, dietary_columns, intent_set_usage
         )
 
         # Summary
         if args.stop_at_intents:
-            logger.info(
-                f"Success! Generated {len(intents)} intents matched to "
-                f"{len(all_matches['matches'])} foods (stopped at intents)"
-            )
+            if intent_sets:
+                logger.info(
+                    f"Success! Used {len(intent_sets)} rotating intent sets to match "
+                    f"{len(all_matches['matches'])} foods (stopped at intents)"
+                )
+                if intent_set_usage:
+                    logger.info(f"Intent set usage: {intent_set_usage}")
+            else:
+                logger.info(
+                    f"Success! Generated {len(intents)} intents matched to "
+                    f"{len(all_matches['matches'])} foods (stopped at intents)"
+                )
         else:
             intent_queries = len(
                 [q for q in final_queries if q["query_type"] == "intent"]
@@ -627,10 +741,18 @@ def main():
             bridged_queries = len(
                 [q for q in final_queries if q["query_type"] == "bridged"]
             )
-            logger.info(
-                f"Success! Generated {len(final_queries)} total queries "
-                f"({intent_queries} intent + {bridged_queries} bridged)"
-            )
+            if intent_sets:
+                logger.info(
+                    f"Success! Used {len(intent_sets)} rotating intent sets to generate "
+                    f"{len(final_queries)} total queries ({intent_queries} intent + {bridged_queries} bridged)"
+                )
+                if intent_set_usage:
+                    logger.info(f"Intent set usage: {intent_set_usage}")
+            else:
+                logger.info(
+                    f"Success! Generated {len(final_queries)} total queries "
+                    f"({intent_queries} intent + {bridged_queries} bridged)"
+                )
 
     except Exception as e:
         logger.error(f"Error: {e}")
