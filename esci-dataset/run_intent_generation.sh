@@ -6,21 +6,22 @@
 # Default parameters (edit these as needed)
 MODEL="gpt-5-mini"
 NUM_INTENTS=50
-LIMIT=150
-BATCH_SIZE=30
+LIMIT=2000
+BATCH_SIZE=50
 QUERIES_PER_ITEM=2
 STOP_AT_INTENTS=1
-PARALLEL=5
+PARALLEL=10
 DIETARY_FLAG=""
 TEMPERATURE=1.0
 OUTPUT_DIR="output"
-EXPERIMENT_NAME="initial-generation-test"
+EXPERIMENT_NAME="Intent_Generation"
 RUN_NAME=""
 STEP1_PROMPT=""
 STEP2_PROMPT=""
 STEP3_PROMPT=""
 USE_INTENT_SETS="intent_sets"
 INTENT_SET_ROTATION=1
+START_IDX=22000
 
 uv run python src/mlflow_wrapper/mlflow_intent_generation.py \
 	--model $MODEL \
@@ -39,4 +40,5 @@ uv run python src/mlflow_wrapper/mlflow_intent_generation.py \
 	$(if [ -n "$STEP1_PROMPT" ]; then echo "--step1-prompt $STEP1_PROMPT"; fi) \
 	$(if [ -n "$STEP2_PROMPT" ]; then echo "--step2-prompt $STEP2_PROMPT"; fi) \
 	$(if [ -n "$STEP3_PROMPT" ]; then echo "--step3-prompt $STEP3_PROMPT"; fi) \
-	$(if [ -n "$USE_INTENT_SETS" ]; then echo "--use-intent-sets $USE_INTENT_SETS"; fi)
+	$(if [ -n "$USE_INTENT_SETS" ]; then echo "--use-intent-sets $USE_INTENT_SETS"; fi) \
+	$(if [ -n "$START_IDX" ]; then echo "--start_idx $START_IDX"; fi)
