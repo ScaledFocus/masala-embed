@@ -107,11 +107,25 @@ def get_approved_runs(experiment_name: str = None, run_id: str = None) -> list[d
             logger.info(f"Skipping already migrated run: {run.info.run_id}")
             continue
 
+        # Extract git commit hash from MLflow metadata
+        # Priority: 1) data_gen_hash param, 2) mlflow.source.git.commit tag
+        data_gen_hash = run.data.params.get("data_gen_hash")
+        if not data_gen_hash:
+            data_gen_hash = run.data.tags.get("mlflow.source.git.commit")
+
+        # Validate git hash exists
+        if not data_gen_hash:
+            logger.warning(
+                f"No git hash found in MLflow metadata for run {run.info.run_id}. "
+                "Skipping this run as it cannot be properly tracked."
+            )
+            continue
+
         approved_runs.append(
             {
                 "run_id": run.info.run_id,
                 "experiment_id": run.info.experiment_id,
-                "data_gen_hash": run.data.params.get("data_gen_hash"),
+                "data_gen_hash": data_gen_hash,
                 "mlflow_run_id": run.data.params.get("mlflow_run_id", run.info.run_id),
                 "generation_approach": run.data.params.get("generation_approach"),
                 "step": run.data.params.get("step"),
@@ -351,6 +365,13 @@ def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
     output_type = run_data["output_type"]
     esci_label = run_data["esci_label"]
 
+    # Validate git hash from MLflow metadata
+    if not data_gen_hash:
+        raise ValueError(
+            f"No git hash available for run {run_id}. "
+            "Cannot maintain data traceability without git hash."
+        )
+
     # For intent generation, default to "E" (Exact match) if esci_label is None
     if generation_approach == "intent" and esci_label is None:
         esci_label = "E"
@@ -360,6 +381,7 @@ def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
     logger.info(
         f"  Approach: {generation_approach}, Output: {output_type}, ESCI: {esci_label}"
     )
+    logger.info(f"  Using git hash from MLflow: {data_gen_hash}")
 
     try:
         # Download data
