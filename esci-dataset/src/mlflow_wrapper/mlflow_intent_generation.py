@@ -278,7 +278,7 @@ def main():
             log_step_metrics(1, step1_time, intents_generated=len(intents))
 
             # Load food data
-            food_df = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag)
+            food_df, dietary_columns = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag)
 
             # Process foods in batches
             all_final_queries = []
@@ -368,7 +368,7 @@ def main():
                     }
 
                     batch_queries = step3_generate_final_queries(
-                        batch_matches, batch_df, args.queries_per_item, args.dietary_flag, args.step3_prompt
+                        batch_matches, batch_df, args.queries_per_item, args.dietary_flag, dietary_columns, args.step3_prompt
                     )
                     all_final_queries.extend(batch_queries)
 
@@ -378,7 +378,7 @@ def main():
             # Save results
             output_paths = save_results(
                 intents, all_matches, all_final_queries, food_df,
-                args.output_dir, args.stop_at_intents, args.dietary_flag
+                args.output_dir, args.stop_at_intents, args.dietary_flag, dietary_columns
             )
 
             # Save processed prompts as separate TXT files

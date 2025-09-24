@@ -254,6 +254,7 @@ def process_in_batches_with_tracking(
     template_path: str,
     query_examples_path: str,
     output_dir: str,
+    dietary_columns: list[str] = None,
 ) -> Tuple[dict, List[Dict], List[Dict], List[float], Dict]:
     """Enhanced batch processing with detailed tracking."""
     all_candidates = []
@@ -299,6 +300,7 @@ def process_in_batches_with_tracking(
             include_dietary=args.dietary_flag,
             queries_per_item=args.queries_per_item,
             query_examples_path=query_examples_path,
+            dietary_columns=dietary_columns,
         )
 
         logger.info(f"Batch {batch_idx + 1} prompt length: {len(prompt)} characters")
@@ -441,7 +443,7 @@ def main():
             generator = QueryGenerator()
 
             # Load and process data
-            df = load_and_process_data(args)
+            df, dietary_columns = load_and_process_data(args)
 
             # Get template path
             template_path = get_template_path(args)
@@ -468,7 +470,7 @@ def main():
 
             # Process data in batches with enhanced tracking
             output_dict, batch_details, batch_failures, batch_times, processed_prompts = process_in_batches_with_tracking(
-                df, args, generator, template_path, query_examples_path, output_dir
+                df, args, generator, template_path, query_examples_path, output_dir, dietary_columns
             )
 
             # Calculate metrics
@@ -502,7 +504,7 @@ def main():
 
             # Determine output path and save results
             output_path = args.output_path or generate_output_filename(args)
-            save_results_as_csv(output_dict, output_path, args, df)
+            save_results_as_csv(output_dict, output_path, args, df, dietary_columns)
 
             # Log output as artifact
             if os.path.exists(output_path):
