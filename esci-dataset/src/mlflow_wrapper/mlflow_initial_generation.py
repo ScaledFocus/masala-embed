@@ -189,12 +189,14 @@ def log_timing_metrics(total_runtime: float, batch_times: list[float]) -> None:
 
 def log_success_metrics(
     total_candidates: int,
+    total_examples: int,
     total_queries: int,
     successful_batches: int,
     failed_batches: int,
 ) -> None:
     """Log success metrics to MLflow."""
     mlflow.log_metric("total_candidates_generated", total_candidates)
+    mlflow.log_metric("total_examples_generated", total_examples)
     mlflow.log_metric("total_queries_generated", total_queries)
     mlflow.log_metric("successful_batches", successful_batches)
     mlflow.log_metric("failed_batches", failed_batches)
@@ -782,9 +784,17 @@ def main():
 
             # Calculate metrics
             total_candidates = len(output_dict.get("candidates", []))
-            total_queries = sum(
+            total_examples = sum(
                 len(candidate.get("queries", []))
                 for candidate in output_dict.get("candidates", [])
+            )
+            # total queries is unique query strings across all candidates
+            total_queries = len(
+                set(
+                    query
+                    for candidate in output_dict.get("candidates", [])
+                    for query in candidate.get("queries", [])
+                )
             )
             successful_batches = len(
                 [bd for bd in batch_details if bd["status"] == "success"]
@@ -797,7 +807,7 @@ def main():
             total_runtime = time.time() - total_start_time
             log_timing_metrics(total_runtime, batch_times)
             log_success_metrics(
-                total_candidates, total_queries, successful_batches, failed_batches
+                total_candidates, total_examples, total_queries, successful_batches, failed_batches
             )
 
             # Handle failures
