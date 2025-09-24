@@ -51,7 +51,8 @@ from src.data_generation.dspy_schemas import (
 from src.utils import get_git_info
 
 # Configure logging
-log_dir = Path(project_root) / "logs" if project_root else Path.cwd() / "logs"
+root_path = Path(project_root) if project_root else Path(__file__).resolve().parents[2]
+log_dir = root_path / "logs"
 log_dir.mkdir(parents=True, exist_ok=True)
 log_suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
 log_file_path = log_dir / f"mlflow_initial_generation_{log_suffix}.log"
@@ -63,6 +64,7 @@ logging.basicConfig(
         logging.StreamHandler(),
         logging.FileHandler(log_file_path),
     ],
+    force=True,
 )
 logger = logging.getLogger(__name__)
 

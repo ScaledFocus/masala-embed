@@ -45,13 +45,20 @@ from src.data_generation.intent_generation_approach import (
 from src.utils import get_git_info
 
 # Configure logging
+root_path = Path(project_root) if project_root else Path(__file__).resolve().parents[2]
+log_dir = root_path / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
+log_suffix = datetime.now().strftime("%Y%m%d_%H%M%S")
+log_file_path = log_dir / f"mlflow_intent_generation_{log_suffix}.log"
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("mlflow_intent_generation.log"),
+        logging.FileHandler(log_file_path),
     ],
+    force=True,
 )
 logger = logging.getLogger(__name__)
 
