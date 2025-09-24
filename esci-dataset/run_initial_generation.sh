@@ -10,13 +10,14 @@ BATCH_SIZE=50
 QUERIES_PER_ITEM=2
 TEMPERATURE=1.2
 MAX_RETRIES=3
-LIMIT=100
-PARALLEL=4
+LIMIT=1000
+START_IDX=0
+PARALLEL=10
 DIETARY_FLAG=""
 OUTPUT_PATH=""
 TEMPLATE_PATH=""
 QUERY_EXAMPLES=""
-EXPERIMENT_NAME="initial-generation-test"
+EXPERIMENT_NAME="Initial Generation"
 RUN_NAME=""
 
 uv run python src/mlflow_wrapper/mlflow_initial_generation.py \
@@ -28,6 +29,7 @@ uv run python src/mlflow_wrapper/mlflow_initial_generation.py \
 	--max_retries $MAX_RETRIES \
 	--parallel $PARALLEL \
 	$(if [ -n "$LIMIT" ]; then echo "--limit $LIMIT"; fi) \
+	$(if [ -n "$START_IDX" ]; then echo "--start_idx $START_IDX"; fi) \
 	$(if [ -n "$DIETARY_FLAG" ]; then echo "--dietary_flag"; fi) \
 	$(if [ -n "$OUTPUT_PATH" ]; then echo "--output_path $OUTPUT_PATH"; fi) \
 	$(if [ -n "$TEMPLATE_PATH" ]; then echo "--template_path $TEMPLATE_PATH"; fi) \
