@@ -263,31 +263,14 @@ def process_enhanced_json_data(
                 # Build query_filters JSON from enhanced format
                 query_filters = {}
 
-                # Parse dimensions_json if it exists
-                if "dimensions_json" in first_record and pd.notna(
-                    first_record["dimensions_json"]
+                # Parse query_filters if it exists
+                if "query_filters" in first_record and pd.notna(
+                    first_record["query_filters"]
                 ):
                     try:
-                        dimensions = json.loads(first_record["dimensions_json"])
-                        if dimensions:
-                            query_filters["dimensions"] = dimensions
+                        query_filters = json.loads(first_record["query_filters"])
                     except (json.JSONDecodeError, TypeError):
                         pass
-
-                # Parse dietary restrictions from dim_* columns
-                dietary_restrictions = []
-                for col in group_df.columns:
-                    if col.startswith("dim_") and pd.notna(first_record[col]):
-                        value = first_record[col]
-                        if value:  # Not empty/null
-                            dim_name = col.replace("dim_", "")
-                            if dim_name == "dietary_restrictions":
-                                dietary_restrictions.append(value)
-                            else:
-                                query_filters[dim_name] = value
-
-                if dietary_restrictions:
-                    query_filters["dietary_restrictions"] = dietary_restrictions
 
                 # Insert query
                 cursor.execute(
