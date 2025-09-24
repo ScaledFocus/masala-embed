@@ -96,7 +96,7 @@ Use authentic, casual language that real users type:
 
 ## **TASK**
 
-Generate 50 diverse, authentic food delivery search queries that represent real user intentions. Cover different scenarios, needs, constraints, and language styles.
+Generate 100 diverse, authentic food delivery search queries that represent real user intentions. Cover different scenarios, needs, constraints, and language styles.
 
 **REMEMBER:**
 - Think like real hungry people typing quickly
@@ -107,7 +107,7 @@ Generate 50 diverse, authentic food delivery search queries that represent real 
 
 ## **OUTPUT FORMAT**
 
-Return a simple list of 50 search queries, one per line:
+Return a simple list of 100 search queries, one per line:
 
 ```
 something crispy for movie night
