@@ -119,26 +119,20 @@ def convert_output_to_dataframe(output: QueryGenerationOutput):
     for candidate in output.candidates:
         for query_obj in candidate.queries:
             row = {
-                "candidate_id": candidate.id,
-                "candidate_name": candidate.name,
+                "consumable_id": candidate.id,
+                "consumable_name": candidate.name,
                 "query": query_obj.query,
                 "dimensions_json": json.dumps(query_obj.dimensions)
                 if query_obj.dimensions
                 else "{}",
             }
-
-            # Add individual dimension columns (None if not present)
-            for dim_key in dimension_columns:
-                row[f"dim_{dim_key}"] = query_obj.dimensions.get(dim_key, None)
-
             rows.append(row)
 
     df = pd.DataFrame(rows)
 
     # Reorder columns for better readability
-    base_columns = ["candidate_id", "candidate_name", "query", "dimensions_json"]
-    dim_columns = [col for col in df.columns if col.startswith("dim_")]
-    df = df[base_columns + dim_columns]
+    base_columns = ["consumable_id", "consumable_name", "query", "dimensions_json"]
+    df = df[base_columns]
 
     return df
 

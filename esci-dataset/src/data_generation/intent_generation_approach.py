@@ -206,7 +206,7 @@ def step1_generate_intents(num_intents: int = 50, prompt_path: str = None) -> li
         raise
 
 
-def load_food_data(limit: int | None = None, dietary_flag: bool = False) -> pd.DataFrame:
+def load_food_data(limit: int | None = None, dietary_flag: bool = False) -> tuple[pd.DataFrame, list[str]]:
     """Load food candidates data from database."""
     logger.info("Loading consumable data from database...")
     try:
@@ -226,11 +226,11 @@ def load_food_data(limit: int | None = None, dietary_flag: bool = False) -> pd.D
             logger.info(f"Selected top {len(df)} records after shuffling")
 
         # Map database column names to expected format
-        if 'id' in df.columns and 'consumable_id' not in df.columns:
-            df = df.rename(columns={'id': 'consumable_id'})
-            logger.info("Mapped 'id' column to 'consumable_id'")
+        df = df.rename(columns={'id': 'consumable_id'})
+        logger.info("Mapped 'id' column to 'consumable_id'")
 
         # Apply dietary evaluation if requested
+        dietary_columns = []
         if dietary_flag:
             logger.info("Applying dietary evaluation...")
             df, dietary_columns = apply_complete_dietary_evaluation(df)
@@ -239,7 +239,7 @@ def load_food_data(limit: int | None = None, dietary_flag: bool = False) -> pd.D
         # Keep original column names (consumable_id, consumable_name)
 
         logger.info(f"Successfully processed {len(df)} food items")
-        return df
+        return df, dietary_columns
 
     except Exception as e:
         logger.error(f"Error loading food data: {e}")
@@ -297,7 +297,8 @@ def step2_match_intents_to_foods(intents: list[str], food_df: pd.DataFrame, diet
 
 
 def step3_generate_final_queries(
-    matches: dict, food_df: pd.DataFrame, queries_per_item: int = 3, dietary_flag: bool = False, prompt_path: str = None
+    matches: dict, food_df: pd.DataFrame, queries_per_item: int = 3, dietary_flag: bool = False,
+    dietary_columns: list[str] = None, prompt_path: str = None
 ) -> list[dict]:
     """Step 3: Generate final queries for all matched pairs using DSPy."""
     logger.info(
@@ -323,14 +324,14 @@ def step3_generate_final_queries(
         food_info = f'{match["consumable_name"]} (ID: {match["consumable_id"]})'
 
         # Add dietary information if flag is enabled
-        if dietary_flag:
+        if dietary_flag and dietary_columns:
             food_row = food_df[food_df['consumable_id'] == match["consumable_id"]]
             if not food_row.empty:
-                dietary_cols = [col for col in food_df.columns if col.startswith(('is_', 'contains_', 'dietary_'))]
                 dietary_info = []
-                for col in dietary_cols:
-                    if food_row[col].iloc[0]:  # Only show True values
-                        dietary_info.append(col.replace('_', ' ').title())
+                for col in dietary_columns:
+                    if col in food_row.columns and food_row[col].iloc[0]:  # Only show True values
+                        human_name = col.replace('_', ' ').title()
+                        dietary_info.append(human_name)
                 if dietary_info:
                     food_info += f" [{', '.join(dietary_info)}]"
 
@@ -376,12 +377,12 @@ def step3_generate_final_queries(
                 raise
 
             # Add dietary columns if flag is enabled
-            if dietary_flag:
+            if dietary_flag and dietary_columns:
                 food_row = food_df[food_df['consumable_id'] == query_result.consumable_id]
                 if not food_row.empty:
-                    dietary_cols = [col for col in food_df.columns if col.startswith(('is_', 'contains_', 'dietary_'))]
-                    for col in dietary_cols:
-                        base_record[col] = food_row[col].iloc[0]
+                    for col in dietary_columns:
+                        if col in food_row.columns:
+                            base_record[col] = food_row[col].iloc[0]
 
             # Add intent as standalone query
             intent_record = base_record.copy()
@@ -422,6 +423,7 @@ def save_results(
     output_dir: str = "output",
     stop_at_intents: bool = False,
     dietary_flag: bool = False,
+    dietary_columns: list[str] = None,
 ):
     """Save all results to files."""
     # Create output directory
@@ -474,14 +476,14 @@ def save_results(
             }
 
             # Add dietary columns if flag is enabled
-            if dietary_flag:
+            if dietary_flag and dietary_columns:
                 # Get food item from dataframe to include dietary info
                 food_row = food_df[food_df['consumable_id'] == match["consumable_id"]]
                 if not food_row.empty:
                     # Add dietary columns if they exist
-                    dietary_cols = [col for col in food_df.columns if col.startswith(('is_', 'contains_', 'dietary_'))]
-                    for col in dietary_cols:
-                        query_record[col] = food_row[col].iloc[0]
+                    for col in dietary_columns:
+                        if col in food_row.columns:
+                            query_record[col] = food_row[col].iloc[0]
 
             intent_queries.append(query_record)
         df = pd.DataFrame(intent_queries)
@@ -561,7 +563,7 @@ def main():
         intents = step1_generate_intents(args.num_intents, args.step1_prompt)
 
         # Load food data
-        food_df = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag)
+        food_df, dietary_columns = load_food_data(limit=args.limit, dietary_flag=args.dietary_flag)
 
         # Process foods in batches
         all_final_queries = []
@@ -587,7 +589,7 @@ def main():
             # Step 3: Generate final queries for this batch (if not stopping at intents)
             if not args.stop_at_intents:
                 batch_queries = step3_generate_final_queries(
-                    batch_matches, batch_df, args.queries_per_item, args.dietary_flag, args.step3_prompt
+                    batch_matches, batch_df, args.queries_per_item, args.dietary_flag, dietary_columns, args.step3_prompt
                 )
                 all_final_queries.extend(batch_queries)
 
@@ -595,7 +597,7 @@ def main():
 
         # Save results
         output_paths = save_results(
-            intents, all_matches, final_queries, food_df, args.output_dir, args.stop_at_intents, args.dietary_flag
+            intents, all_matches, final_queries, food_df, args.output_dir, args.stop_at_intents, args.dietary_flag, dietary_columns
         )
 
         # Summary

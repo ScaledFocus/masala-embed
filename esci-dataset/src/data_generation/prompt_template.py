@@ -14,7 +14,7 @@ def load_prompt_template(template_path: str) -> str:
         return f.read()
 
 
-def generate_markdown_table(df: pd.DataFrame, include_dietary: bool = False) -> str:
+def generate_markdown_table(df: pd.DataFrame, dietary_columns: list[str] = None, include_dietary: bool = False) -> str:
     """
     Generate a markdown table from DataFrame.
 
@@ -27,18 +27,6 @@ def generate_markdown_table(df: pd.DataFrame, include_dietary: bool = False) -> 
     """
     # Base columns that are always included
     base_columns = ["id", "consumable_name", "consumable_ingredients"]
-
-    # Dietary columns to include if requested
-    dietary_columns = [
-        "is_vegetarian",
-        "is_vegan",
-        "is_gluten_free",
-        "is_dairy_free",
-        "is_nut_free",
-        "is_lacto_vegetarian",
-        "is_pescetarian",
-        "is_lacto_ovo_vegetarian",
-    ]
 
     # Select columns based on dietary flag
     if include_dietary:
@@ -113,6 +101,7 @@ def prepare_prompt(
     include_dietary: bool = False,
     queries_per_item: int = 5,
     query_examples_path: str | None = None,
+    dietary_columns: list[str] = None,
 ) -> str:
     """
     Prepare the complete prompt by loading template and replacing placeholders.
@@ -136,7 +125,7 @@ def prepare_prompt(
     df_batch = df.head(batch_size)
 
     # Generate markdown table
-    markdown_table = generate_markdown_table(df_batch, include_dietary)
+    markdown_table = generate_markdown_table(df_batch, dietary_columns, include_dietary)
 
     # Load examples if path provided
     examples_content = ""

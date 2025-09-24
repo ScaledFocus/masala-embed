@@ -238,7 +238,7 @@ def generate_output_filename(args: argparse.Namespace) -> str:
     return os.path.join(output_dir, filename)
 
 
-def load_and_process_data(args: argparse.Namespace) -> pd.DataFrame:
+def load_and_process_data(args: argparse.Namespace) -> tuple[pd.DataFrame, list[str]]:
     """Load consumable data and apply dietary evaluation if requested."""
     logger.info("Loading consumable data from database...")
 
@@ -259,17 +259,16 @@ def load_and_process_data(args: argparse.Namespace) -> pd.DataFrame:
             df = df.head(args.limit)
             logger.info(f"Selected top {len(df)} records after shuffling")
 
-        # Apply dietary evaluation if requested
-        if args.dietary_flag:
-            logger.info("Applying dietary evaluation...")
-            df, dietary_columns = apply_complete_dietary_evaluation(df)
-            logger.info(f"Added dietary columns: {dietary_columns}")
+        # Always apply dietary evaluation for enhanced JSON structure
+        logger.info("Applying dietary evaluation...")
+        df, dietary_columns = apply_complete_dietary_evaluation(df)
+        logger.info(f"Added dietary columns: {dietary_columns}")
 
         logger.info(
             f"Ready to process {len(df)} records in batches of {args.batch_size}"
         )
 
-        return df
+        return df, dietary_columns
 
     except Exception as e:
         logger.error(f"Error loading/processing data: {e}")
@@ -310,6 +309,7 @@ def process_in_batches(
     generator: QueryGenerator,
     template_path: str,
     query_examples_path: str,
+    dietary_columns: list[str] = None,
 ) -> dict:
     """Process dataframe in batches and combine results."""
     all_candidates = []
@@ -341,6 +341,7 @@ def process_in_batches(
             include_dietary=args.dietary_flag,
             queries_per_item=args.queries_per_item,
             query_examples_path=query_examples_path,
+            dietary_columns=dietary_columns,
         )
 
         logger.info(f"Batch {batch_idx + 1} prompt length: {len(prompt)} characters")
@@ -373,7 +374,7 @@ def process_in_batches(
 
 
 def save_results_as_csv(
-    output_data: dict, output_path: str, args: argparse.Namespace
+    output_data: dict, output_path: str, args: argparse.Namespace, original_df: pd.DataFrame = None, dietary_columns: list[str] = None
 ) -> None:
     """Save generation results to CSV file using structured approach."""
     # Add metadata
@@ -393,11 +394,11 @@ def save_results_as_csv(
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
     # Always save as CSV using structured approach
-    save_as_csv(output_data, output_path)
+    save_as_csv(output_data, output_path, original_df, dietary_columns)
     logger.info(f"Results saved to CSV: {output_path}")
 
 
-def save_as_csv(output_data: dict, output_path: str) -> None:
+def save_as_csv(output_data: dict, output_path: str, original_df: pd.DataFrame = None, dietary_columns: list[str] = None) -> None:
     """Save results in CSV format with one query per row using structured approach."""
     candidates = output_data.get("candidates", [])
     metadata = output_data.get("metadata", {})
@@ -407,10 +408,10 @@ def save_as_csv(output_data: dict, output_path: str) -> None:
         # Create empty DataFrame with expected columns
         df = pd.DataFrame(
             columns=[
-                "candidate_id",
-                "candidate_name",
+                "consumable_id",
+                "consumable_name",
                 "query",
-                "dimensions_json",
+                "query_filters",
                 "esci_label",
                 "generated_at",
             ]
@@ -422,36 +423,88 @@ def save_as_csv(output_data: dict, output_path: str) -> None:
             # Use the new DataFrame conversion function
             df = convert_output_to_dataframe(structured_output)
 
+            # Create enhanced JSON structure with dietary restrictions
+            df = create_enhanced_query_filters(df, original_df, dietary_columns)
+
+            # Keep only essential columns - remove all dim_* columns
+            essential_columns = [
+                "consumable_id",
+                "consumable_name",
+                "query",
+                "query_filters"
+            ]
+            # Keep only columns that exist in the DataFrame
+            final_columns = [col for col in essential_columns if col in df.columns]
+            df = df[final_columns].copy()
+
             # Add metadata columns
             df["esci_label"] = metadata.get("esci_label", "")
             df["generated_at"] = metadata.get("generated_at", "")
 
         except Exception as e:
-            logger.warning(
-                f"Failed to use structured conversion, "
-                f"falling back to legacy method: {e}"
-            )
-            # Fallback to legacy method
-            records = []
-            for candidate in candidates:
-                for query_data in candidate.get("queries", []):
-                    records.append(
-                        {
-                            "candidate_id": candidate.get("id", ""),
-                            "candidate_name": candidate.get("name", ""),
-                            "query": query_data.get("query", ""),
-                            "dimensions_json": json.dumps(
-                                query_data.get("dimensions", {})
-                            ),
-                            "esci_label": metadata.get("esci_label", ""),
-                            "generated_at": metadata.get("generated_at", ""),
-                        }
-                    )
-            df = pd.DataFrame(records)
+            logger.error(f"Failed to convert output to DataFrame: {e}")
+            raise e    
 
     # Save to CSV
     df.to_csv(output_path, index=False, encoding="utf-8")
 
+
+def create_enhanced_query_filters(df: pd.DataFrame, original_df: pd.DataFrame = None, dietary_columns: list[str] = None) -> pd.DataFrame:
+    """
+    Create enhanced query_filters JSON structure using existing dietary columns.
+
+    Args:
+        df: DataFrame from convert_output_to_dataframe()
+        original_df: Original DataFrame with dietary columns
+
+    Returns:
+        DataFrame with query_filters column containing enhanced JSON structure
+    """
+    if original_df is None:
+        # Fallback - just use dimensions without dietary restrictions
+        df["query_filters"] = df["dimensions_json"]
+        logger.warning("Original DataFrame not provided, skipping dietary enrichment")
+        return df
+    if dietary_columns:
+        # Create a DataFrame with only id and dietary columns
+        dietary_df = original_df[["id"] + dietary_columns].copy()
+        # Melt to long format, filter True, and aggregate to lists
+        melted = dietary_df.melt(id_vars="id", value_vars=dietary_columns, var_name="col", value_name="val")
+        filtered = melted[melted["val"]].copy()
+        # Humanize column names
+        filtered["col"] = (
+            filtered["col"]
+            .str.replace("is_", "", regex=False)
+            .str.replace("_", " ", regex=False)
+            .str.title()
+            .str.replace("Gluten Free", "Gluten-Free")
+            .str.replace("Dairy Free", "Dairy-Free")
+            .str.replace("Nut Free", "Nut-Free")
+        )
+        dietary_lookup = (
+            filtered.groupby("id")["col"].apply(list).to_dict()
+        )
+    else:
+        dietary_lookup = {}
+
+    # Function to combine LLM and rule-based dietary restrictions
+    def build_query_filters(row):
+        candidate_id = row["consumable_id"]
+        # Parse LLM dimensions
+        try:
+            llm_dimensions = json.loads(row["dimensions_json"]) if row["dimensions_json"] else {}
+        except Exception as e:
+            logger.warning(f"Failed to parse dimensions_json for id {candidate_id}: {e}")
+            llm_dimensions = {}
+        # Get rule-based dietary
+        rule_based_dietary = dietary_lookup.get(candidate_id, [])
+        return json.dumps({
+            "dimensions": llm_dimensions,
+            "rule_based_dietary_restrictions": rule_based_dietary
+        })
+
+    df["query_filters"] = df.apply(build_query_filters, axis=1)
+    return df
 
 def main():
     """Main function."""
@@ -474,7 +527,7 @@ def main():
         generator = QueryGenerator()
 
         # Load and process data
-        df = load_and_process_data(args)
+        df, dietary_columns = load_and_process_data(args)
 
         # Get template path
         template_path = get_template_path(args)
@@ -488,7 +541,7 @@ def main():
         # Process data in batches
         try:
             output_dict = process_in_batches(
-                df, args, generator, template_path, query_examples_path
+                df, args, generator, template_path, query_examples_path, dietary_columns
             )
             logger.info(
                 f"Successfully generated queries for "
@@ -502,8 +555,8 @@ def main():
         # Determine output path
         output_path = args.output_path or generate_output_filename(args)
 
-        # Save results as CSV
-        save_results_as_csv(output_dict, output_path, args)
+        # Save results as CSV with original DataFrame for dietary data
+        save_results_as_csv(output_dict, output_path, args, df, dietary_columns)
 
         logger.info("Query generation completed successfully!")
 
