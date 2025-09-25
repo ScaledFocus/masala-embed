@@ -316,11 +316,11 @@ def process_enhanced_json_data(
                     # Insert example (query-consumable pair)
                     cursor.execute(
                         """
-                        INSERT INTO example (query_id, consumable_id)
-                        VALUES (%s, %s)
+                        INSERT INTO example (query_id, consumable_id, example_gen_hash)
+                        VALUES (%s, %s, %s)
                         RETURNING id
                         """,
-                        (query_id, candidate_id),
+                        (query_id, candidate_id, data_gen_hash),
                     )
                     example_id = cursor.fetchone()[0]
                     examples_inserted += 1
