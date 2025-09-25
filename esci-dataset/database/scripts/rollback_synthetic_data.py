@@ -58,10 +58,8 @@ def get_migrated_run(run_id: str) -> dict:
 
     # Check if run is migrated
     if run.data.tags.get("data_status") != "migrated":
-        status = run.data.tags.get('data_status', 'unknown')
-        raise ValueError(
-            f"Run {run_id} is not marked as migrated. Status: {status}"
-        )
+        status = run.data.tags.get("data_status", "unknown")
+        raise ValueError(f"Run {run_id} is not marked as migrated. Status: {status}")
 
     # Extract git commit hash from MLflow metadata
     data_gen_hash = run.data.params.get("data_gen_hash")
