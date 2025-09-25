@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# ESCI Annotation App Runner
+# ESCI Bulk Annotation Tool Runner
 # Usage:
-#   ./run_annotation_app.sh <csv_file>
-#   ./run_annotation_app.sh --database --run-id <run_id> [--labeler-id <name>]
+#   ./run_bulk_annotation.sh <csv_file>
+#   ./run_bulk_annotation.sh --database --run-id <run_id> [--labeler-id <name>]
 
 set -e
 
@@ -22,12 +22,12 @@ if [ $# -eq 0 ]; then
 fi
 
 # Display info
-echo "🏷️  Starting ESCI Annotation Tool"
+echo "🚀 Starting ESCI Bulk Annotation Tool"
 
 # Check if database mode
 if [ "$1" = "--database" ]; then
     echo "🗄️ Mode: Database"
-    echo "🌐 URL: http://localhost:5002"
+    echo "🌐 URL: http://localhost:5003"
 else
     CSV_FILE=$1
     # Check if CSV file exists
@@ -37,12 +37,12 @@ else
     fi
     echo "📁 Mode: CSV File"
     echo "📁 File: $CSV_FILE"
-    echo "🌐 URL: http://localhost:5002"
+    echo "🌐 URL: http://localhost:5003"
 fi
 
-echo "⌨️  Shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate"
-echo "📍 Skip to record: Type number + Enter/Go"
+echo "⚡ Fast Mode: Multi-record view with adjustable page size"
+echo "⌨️  Shortcuts: Click E/S/C/I buttons on each card"
 echo ""
 
 # Run the Flask app with all arguments
-uv run python annotation/app.py "$@"
+uv run python annotation/app_bulk.py "$@"
