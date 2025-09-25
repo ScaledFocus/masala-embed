@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏷️ ESCI Dataset Annotation Tool</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s;
+        }
+        .content-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+        .consumable-box, .query-box {
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid;
+        }
+        .consumable-box {
+            background-color: #f0f8ff;
+            border-color: #1f77b4;
+        }
+        .query-box {
+            background-color: #fff8f5;
+            border-color: #ff6b35;
+        }
+        .consumable-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f77b4;
+            margin: 10px 0;
+        }
+        .query-text {
+            font-size: 26px;
+            font-weight: bold;
+            color: #ff6b35;
+            font-style: italic;
+            margin: 10px 0;
+        }
+        .current-label {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .label-E { background-color: #d4edda; color: #155724; }
+        .label-S { background-color: #fff3cd; color: #856404; }
+        .label-C { background-color: #d1ecf1; color: #0c5460; }
+        .label-I { background-color: #f8d7da; color: #721c24; }
+
+        .buttons-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+        }
+        .btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .btn-nav { background-color: #6c757d; color: white; }
+        .btn-E { background-color: #28a745; color: white; }
+        .btn-S { background-color: #ffc107; color: black; }
+        .btn-C { background-color: #17a2b8; color: white; }
+        .btn-I { background-color: #dc3545; color: white; }
+
+        .controls-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .btn-control { background-color: #007bff; color: white; }
+
+        .shortcuts {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+        .status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            display: none;
+        }
+        .status.success { background-color: #28a745; }
+        .status.error { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="status" id="status"></div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🏷️ ESCI Dataset Annotation Tool</h1>
+            <div id="fileInfo">Loading...</div>
+        </div>
+
+        <div id="mainContent" style="display: none;">
+            <!-- Progress -->
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div style="text-align: center; margin: 10px 0;">
+                <span id="progressText">0 / 0</span>
+            </div>
+
+            <!-- Skip to Record -->
+            <div style="text-align: center; margin: 15px 0;">
+                <label for="skipToRecord" style="margin-right: 10px; font-weight: bold;">Skip to record:</label>
+                <input type="number" id="skipToRecord" min="1" max="1" style="width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center;">
+                <button class="btn" onclick="skipToRecord()" style="margin-left: 10px; padding: 5px 15px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Go</button>
+            </div>
+
+            <!-- Content -->
+            <div class="content-row">
+                <div class="consumable-box">
+                    <h3>🍽️ Consumable</h3>
+                    <div><strong>ID:</strong> <span id="consumableId"></span></div>
+                    <div class="consumable-name">📦 <span id="consumableName"></span></div>
+
+                </div>
+
+                <div class="query-box">
+                    <h3>🔍 Search Query</h3>
+                    <div class="query-text">🔎 "<span id="queryText"></span>"</div>
+                    <div><strong>Generated:</strong> <span id="generatedAt"></span></div>
+                </div>
+            </div>
+
+            <!-- Current Label -->
+            <div class="current-label" id="currentLabel"></div>
+
+            <!-- ESCI Buttons -->
+            <div class="buttons-row">
+                <button class="btn btn-nav" id="prevBtn" onclick="navigate(-1)">◀️ Previous</button>
+                <button class="btn btn-E" onclick="setLabel('E')">🟢 Z - Exact</button>
+                <button class="btn btn-S" onclick="setLabel('S')">🟡 X - Substitute</button>
+                <button class="btn btn-C" onclick="setLabel('C')">🟠 C - Complement</button>
+                <button class="btn btn-I" onclick="setLabel('I')">🔴 V - Irrelevant</button>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls-row">
+                <button class="btn btn-control" onclick="navigate(1)">▶️ Next</button>
+                <button class="btn btn-control" onclick="window.location.reload()">🔄 Reload</button>
+            </div>
+
+            <!-- Keyboard Shortcuts -->
+            <div class="shortcuts">
+                <strong>⌨️ Keyboard Shortcuts:</strong>
+                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate
+                <br><strong>✅ Auto-saves to CSV file immediately!</strong>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let data = [];
+        let currentIndex = 0;
+        let filename = '';
+
+        // Load data from Flask API
+        async function loadData() {
+            try {
+                const response = await fetch('/api/data');
+                const result = await response.json();
+
+                if (result.error) {
+                    document.getElementById('fileInfo').textContent = 'Error: ' + result.error;
+                    return;
+                }
+
+                data = result.data;
+                filename = result.filename;
+
+                document.getElementById('fileInfo').textContent = `📁 ${filename} (${result.total} records)`;
+                document.getElementById('mainContent').style.display = 'block';
+
+                if (data.length > 0) {
+                    // Update skip input max value
+                    document.getElementById('skipToRecord').max = data.length;
+                    displayItem(0);
+                }
+            } catch (error) {
+                document.getElementById('fileInfo').textContent = 'Error loading data: ' + error.message;
+            }
+        }
+
+        // Display current item
+        function displayItem(index) {
+            if (index < 0 || index >= data.length) return;
+
+            currentIndex = index;
+            const item = data[index];
+
+            // Update content
+            document.getElementById('consumableId').textContent = item.consumable_id || '';
+            document.getElementById('consumableName').textContent = item.consumable_name || '';
+            document.getElementById('queryText').textContent = item.query || '';
+            document.getElementById('generatedAt').textContent = item.generated_at || '';
+
+
+            // Update current label
+            const currentLabel = item.esci_label || 'I';
+            const labelDiv = document.getElementById('currentLabel');
+            labelDiv.className = `current-label label-${currentLabel}`;
+
+            const labelNames = { E: 'Exact', S: 'Substitute', C: 'Complement', I: 'Irrelevant' };
+            const labelEmojis = { E: '🟢', S: '🟡', C: '🟠', I: '🔴' };
+            labelDiv.textContent = `${labelEmojis[currentLabel]} ${currentLabel} - ${labelNames[currentLabel]}`;
+
+            // Update progress
+            const progress = ((index + 1) / data.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressText').textContent = `${index + 1} / ${data.length}`;
+
+            // Update skip input field with current record number
+            document.getElementById('skipToRecord').value = index + 1;
+
+            // Update navigation buttons
+            document.getElementById('prevBtn').disabled = index === 0;
+        }
+
+        // Show status message
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 2000);
+        }
+
+        // Set ESCI label
+        async function setLabel(label) {
+            if (data.length === 0) return;
+
+            try {
+                const response = await fetch('/api/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex,
+                        label: label
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data
+                    data[currentIndex].esci_label = label;
+
+                    showStatus(`✅ Saved ${label} to CSV!`);
+
+                    // Auto-advance to next item
+                    if (currentIndex < data.length - 1) {
+                        displayItem(currentIndex + 1);
+                    } else {
+                        displayItem(currentIndex); // Refresh current item
+                        showStatus('🎉 Annotation complete!');
+                    }
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Skip to specific record
+        function skipToRecord() {
+            const input = document.getElementById('skipToRecord');
+            const recordNumber = parseInt(input.value);
+
+            if (isNaN(recordNumber) || recordNumber < 1 || recordNumber > data.length) {
+                showStatus(`❌ Invalid record number. Enter 1-${data.length}`, 'error');
+                input.value = currentIndex + 1; // Reset to current record
+                return;
+            }
+
+            // Convert to 0-based index
+            const targetIndex = recordNumber - 1;
+            displayItem(targetIndex);
+            showStatus(`📍 Jumped to record ${recordNumber}`);
+        }
+
+        // Navigate
+        function navigate(direction) {
+            const newIndex = currentIndex + direction;
+            if (newIndex >= 0 && newIndex < data.length) {
+                displayItem(newIndex);
+            }
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Skip if user is typing in input fields
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (data.length === 0) return;
+
+            switch(e.key.toLowerCase()) {
+                case 'z':
+                    e.preventDefault();
+                    setLabel('E');
+                    break;
+                case 'x':
+                    e.preventDefault();
+                    setLabel('S');
+                    break;
+                case 'c':
+                    e.preventDefault();
+                    setLabel('C');
+                    break;
+                case 'v':
+                    e.preventDefault();
+                    setLabel('I');
+                    break;
+                case 'arrowleft':
+                    e.preventDefault();
+                    navigate(-1);
+                    break;
+                case 'arrowright':
+                    e.preventDefault();
+                    navigate(1);
+                    break;
+            }
+        });
+
+        // Load data when page loads
+        window.addEventListener('load', function() {
+            loadData();
+
+            // Add Enter key support for skip input field
+            document.getElementById('skipToRecord').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    skipToRecord();
+                }
+            });
+        });
+
+        console.log('🏷️ ESCI Annotation Tool loaded');
+        console.log('Keyboard shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate');
+        console.log('✅ Changes save directly to CSV file!');
+    </script>
+</body>
+</html>
