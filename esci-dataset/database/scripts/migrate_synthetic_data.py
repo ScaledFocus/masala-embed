@@ -272,23 +272,38 @@ def process_enhanced_json_data(
                     except (json.JSONDecodeError, TypeError):
                         pass
 
-                # Insert query
+                # Check if query already exists, if not insert new one
                 cursor.execute(
                     """
-                    INSERT INTO query (query_content, query_filters, data_gen_hash,
-                                     mlflow_run_id)
-                    VALUES (%s, %s, %s, %s)
-                    RETURNING id
+                    SELECT id FROM query
+                    WHERE query_content = %s
+                    LIMIT 1
                     """,
-                    (
-                        query_text,
-                        json.dumps(query_filters) if query_filters else None,
-                        data_gen_hash,
-                        mlflow_run_id,
-                    ),
+                    (query_text,),
                 )
-                query_id = cursor.fetchone()[0]
-                queries_inserted += 1
+                existing_query = cursor.fetchone()
+
+                if existing_query:
+                    # Use existing query
+                    query_id = existing_query[0]
+                else:
+                    # Insert new query
+                    cursor.execute(
+                        """
+                        INSERT INTO query (query_content, query_filters, data_gen_hash,
+                                         mlflow_run_id)
+                        VALUES (%s, %s, %s, %s)
+                        RETURNING id
+                        """,
+                        (
+                            query_text,
+                            json.dumps(query_filters) if query_filters else None,
+                            data_gen_hash,
+                            mlflow_run_id,
+                        ),
+                    )
+                    query_id = cursor.fetchone()[0]
+                    queries_inserted += 1
 
                 # Insert examples and labels for each candidate in this query group
                 for _, row in group_df.iterrows():
