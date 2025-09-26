@@ -4,12 +4,12 @@
 # Edit the defaults below, then run: ./run_migrate_synthetic_data.sh
 
 # Default parameters (edit these as needed)
-EXPERIMENT_NAME="Intent_Generation"
-RUN_ID="bc54925269c74aaba03741b1214c7766"
-ALL_APPROVED=""
+EXPERIMENT_NAME=""
+RUN_ID=""
+ALL_APPROVED="true"
 DRY_RUN=""
 CONFIRM="true"
-BRIDGED="true"
+BRIDGED=""
 
 uv run python database/scripts/migrate_synthetic_data.py \
 	$(if [ -n "$EXPERIMENT_NAME" ]; then echo "--experiment-name $EXPERIMENT_NAME"; fi) \

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-Flask-based ESCI Annotation Tool
-Supports both CSV files and database storage
+Flask-based ESCI Bulk Annotation Tool
+Fast browsing with compact interface and small ESCI buttons
 
 Usage:
-    python app.py queries_I_batch100_limit200_v2_20250925_112245.csv
-    python app.py --database
+    python app_bulk.py queries_I_batch100_limit200_v2_20250925_112245.csv
+    python app_bulk.py --database --run-id abc123def456 --labeler-id Luv
 """
 
 import argparse
@@ -27,11 +27,12 @@ df = None
 use_database = False
 mlflow_run_id = None
 labeler_id = None
+page_size = 6
 
 
 @app.route("/")
 def index():
-    return render_template("annotate.html")
+    return render_template("annotate_bulk.html", page_size=page_size)
 
 
 @app.route("/api/data")
@@ -338,7 +339,10 @@ def update_query_in_database(example_index, new_query_text):
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 # Check if the new query text already exists globally
-                cursor.execute("SELECT id FROM query WHERE query_content = %s LIMIT 1", (new_query_text,))
+                cursor.execute(
+                    "SELECT id FROM query WHERE query_content = %s LIMIT 1",
+                    (new_query_text,)
+                )
                 existing_query = cursor.fetchone()
 
                 if existing_query:
@@ -441,7 +445,7 @@ def delete_label_from_database(example_index):
 def parse_arguments():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(
-        description="ESCI Annotation Tool - Annotate query-consumable pairs"
+        description="ESCI Bulk Annotation Tool - Fast multi-record annotation"
     )
 
     # Mutually exclusive group for data source
@@ -467,12 +471,21 @@ def parse_arguments():
         default="Luv",
         help="Name of the labeler (default: Luv)"
     )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=6,
+        help="Number of records to display per page (default: 6)"
+    )
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_arguments()
+
+    # Set global page size
+    page_size = args.page_size
 
     if args.database:
         if not args.run_id:
@@ -482,7 +495,7 @@ if __name__ == "__main__":
         use_database = True
         load_database_data(args.run_id, args.labeler_name)
 
-        print("🏷️ ESCI Annotation Tool starting...")
+        print("🚀 ESCI Bulk Annotation Tool starting...")
         print("🗄️ Mode: Database")
         print(f"📊 MLflow Run: {args.run_id}")
         print(f"👤 Labeler: {args.labeler_name}")
@@ -496,12 +509,12 @@ if __name__ == "__main__":
         use_database = False
         load_csv(args.csv_file)
 
-        print("🏷️ ESCI Annotation Tool starting...")
+        print("🚀 ESCI Bulk Annotation Tool starting...")
         print("📁 Mode: CSV File")
         print(f"📁 File: {args.csv_file}")
         print(f"📊 Records: {len(df)}")
 
-    print("🌐 Open: http://localhost:5002")
-    print("⌨️  Keyboard: Z=E, X=S, C=C, V=I")
+    print("🌐 Open: http://localhost:5003")
+    print("⚡ Fast Mode: Compact interface with small ESCI buttons")
 
-    app.run(debug=True, port=5002)
+    app.run(debug=True, port=5003)
