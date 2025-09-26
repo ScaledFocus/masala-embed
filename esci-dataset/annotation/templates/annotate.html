@@ -112,6 +112,8 @@
             margin: 20px 0;
         }
         .btn-control { background-color: #007bff; color: white; }
+        .btn-edit { background-color: #ffc107; color: black; }
+        .btn-delete { background-color: #dc3545; color: white; }
 
         .shortcuts {
             background-color: #e9ecef;
@@ -134,6 +136,54 @@
         }
         .status.success { background-color: #28a745; }
         .status.error { background-color: #dc3545; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 500px;
+            position: relative;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            cursor: pointer;
+        }
+        .close:hover { color: black; }
+        .modal input[type="text"], .modal textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+        .modal-buttons {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .modal-buttons button {
+            margin: 0 10px;
+            padding: 10px 20px;
+        }
     </style>
 </head>
 <body>
@@ -171,14 +221,30 @@
                 </div>
 
                 <div class="query-box">
-                    <h3>🔍 Search Query</h3>
+                    <h3>🔍 Search Query
+                        <button class="btn btn-edit" onclick="editQuery()" style="font-size: 12px; padding: 5px 10px; margin-left: 10px;">✏️ Edit</button>
+                    </h3>
                     <div class="query-text">🔎 "<span id="queryText"></span>"</div>
-                    <div><strong>Generated:</strong> <span id="generatedAt"></span></div>
+                    <div><strong>Created:</strong> <span id="createdAt"></span></div>
                 </div>
             </div>
 
-            <!-- Current Label -->
-            <div class="current-label" id="currentLabel"></div>
+            <!-- Current Label(s) -->
+            <div id="labelContainer">
+                <!-- Database mode: separate human and AI labels -->
+                <div id="databaseLabels" style="display: none;">
+                    <div class="current-label" id="humanLabel">
+                        <strong>Human Label:</strong> <span id="humanLabelText"></span>
+                    </div>
+                    <div class="current-label" id="aiLabel">
+                        <strong>AI Label:</strong> <span id="aiLabelText"></span>
+                    </div>
+                </div>
+                <!-- CSV mode: single combined label -->
+                <div id="csvLabel" style="display: none;">
+                    <div class="current-label" id="currentLabel"></div>
+                </div>
+            </div>
 
             <!-- ESCI Buttons -->
             <div class="buttons-row">
@@ -195,11 +261,63 @@
                 <button class="btn btn-control" onclick="window.location.reload()">🔄 Reload</button>
             </div>
 
+            <!-- Advanced Actions -->
+            <div class="controls-row">
+                <button class="btn btn-delete" onclick="deleteLabel()">🗑️ Clear Label</button>
+                <button class="btn btn-delete" onclick="deleteExample()">🗑️ Delete Example</button>
+            </div>
+
             <!-- Keyboard Shortcuts -->
             <div class="shortcuts">
                 <strong>⌨️ Keyboard Shortcuts:</strong>
-                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate
+                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate • Esc=Clear • Enter=Copy AI
                 <br><strong>✅ Auto-saves to CSV file immediately!</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Query Modal -->
+    <div id="editQueryModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('editQueryModal')">&times;</span>
+            <h3>✏️ Edit Query</h3>
+            <p>Update the search query text:</p>
+            <textarea id="editQueryInput" rows="3" placeholder="Enter new query..."></textarea>
+            <div class="modal-buttons">
+                <button class="btn btn-control" onclick="saveQueryEdit()">💾 Save</button>
+                <button class="btn btn-nav" onclick="closeModal('editQueryModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Example Modal -->
+    <div id="confirmDeleteModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('confirmDeleteModal')">&times;</span>
+            <h3>⚠️ Delete Example</h3>
+            <p>Are you sure you want to delete this example? This will:</p>
+            <ul>
+                <li>Remove the example completely</li>
+                <li>Delete all associated labels</li>
+                <li><strong>This cannot be undone!</strong></li>
+            </ul>
+            <div class="modal-buttons">
+                <button class="btn btn-delete" onclick="confirmDeleteExample()">🗑️ Delete</button>
+                <button class="btn btn-nav" onclick="closeModal('confirmDeleteModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Label Modal -->
+    <div id="confirmDeleteLabelModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('confirmDeleteLabelModal')">&times;</span>
+            <h3>⚠️ Clear Label</h3>
+            <p>Are you sure you want to clear your label for this example?</p>
+            <p>This will remove your annotation but keep the example.</p>
+            <div class="modal-buttons">
+                <button class="btn btn-delete" onclick="confirmDeleteLabel()">🗑️ Clear</button>
+                <button class="btn btn-nav" onclick="closeModal('confirmDeleteLabelModal')">❌ Cancel</button>
             </div>
         </div>
     </div>
@@ -236,6 +354,11 @@
             }
         }
 
+        // Detect if we're in database mode (has separate human/AI labels) or CSV mode
+        function isDatabaseMode(item) {
+            return item.hasOwnProperty('human_esci_label') || item.hasOwnProperty('ai_esci_label');
+        }
+
         // Display current item
         function displayItem(index) {
             if (index < 0 || index >= data.length) return;
@@ -247,17 +370,42 @@
             document.getElementById('consumableId').textContent = item.consumable_id || '';
             document.getElementById('consumableName').textContent = item.consumable_name || '';
             document.getElementById('queryText').textContent = item.query || '';
-            document.getElementById('generatedAt').textContent = item.generated_at || '';
+            document.getElementById('createdAt').textContent = item.created_at || '';
 
+            const labelNames = { E: 'Exact', S: 'Substitute', C: 'Complement', I: 'Irrelevant', '': 'Not Labeled' };
+            const labelEmojis = { E: '🟢', S: '🟡', C: '🟠', I: '🔴', '': '⚫' };
 
-            // Update current label
-            const currentLabel = item.esci_label || 'I';
-            const labelDiv = document.getElementById('currentLabel');
-            labelDiv.className = `current-label label-${currentLabel}`;
+            // Check if database mode or CSV mode
+            if (isDatabaseMode(item)) {
+                // Database mode: show separate human and AI labels
+                document.getElementById('databaseLabels').style.display = 'block';
+                document.getElementById('csvLabel').style.display = 'none';
 
-            const labelNames = { E: 'Exact', S: 'Substitute', C: 'Complement', I: 'Irrelevant' };
-            const labelEmojis = { E: '🟢', S: '🟡', C: '🟠', I: '🔴' };
-            labelDiv.textContent = `${labelEmojis[currentLabel]} ${currentLabel} - ${labelNames[currentLabel]}`;
+                // Human label
+                const humanLabel = item.human_esci_label || '';
+                const humanLabelDiv = document.getElementById('humanLabel');
+                humanLabelDiv.className = `current-label ${humanLabel ? `label-${humanLabel}` : ''}`;
+                document.getElementById('humanLabelText').textContent = humanLabel ?
+                    `${labelEmojis[humanLabel]} ${humanLabel} - ${labelNames[humanLabel]}` :
+                    `${labelEmojis['']} Not Labeled`;
+
+                // AI label
+                const aiLabel = item.ai_esci_label || '';
+                const aiLabelDiv = document.getElementById('aiLabel');
+                aiLabelDiv.className = `current-label ${aiLabel ? `label-${aiLabel}` : ''}`;
+                document.getElementById('aiLabelText').textContent = aiLabel ?
+                    `${labelEmojis[aiLabel]} ${aiLabel} - ${labelNames[aiLabel]}` :
+                    `${labelEmojis['']} Not Labeled`;
+            } else {
+                // CSV mode: show single combined label
+                document.getElementById('databaseLabels').style.display = 'none';
+                document.getElementById('csvLabel').style.display = 'block';
+
+                const currentLabel = item.esci_label || 'I';
+                const labelDiv = document.getElementById('currentLabel');
+                labelDiv.className = `current-label label-${currentLabel}`;
+                labelDiv.textContent = `${labelEmojis[currentLabel]} ${currentLabel} - ${labelNames[currentLabel]}`;
+            }
 
             // Update progress
             const progress = ((index + 1) / data.length) * 100;
@@ -267,8 +415,8 @@
             // Update skip input field with current record number
             document.getElementById('skipToRecord').value = index + 1;
 
-            // Update navigation buttons
-            document.getElementById('prevBtn').disabled = index === 0;
+            // Navigation buttons are always enabled (circular navigation)
+            document.getElementById('prevBtn').disabled = false;
         }
 
         // Show status message
@@ -302,10 +450,17 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    // Update local data
-                    data[currentIndex].esci_label = label;
-
-                    showStatus(`✅ Saved ${label} to CSV!`);
+                    // Update local data based on mode
+                    const item = data[currentIndex];
+                    if (isDatabaseMode(item)) {
+                        // Database mode: update human label
+                        data[currentIndex].human_esci_label = label;
+                        showStatus(`✅ Saved ${label} to database!`);
+                    } else {
+                        // CSV mode: update combined label
+                        data[currentIndex].esci_label = label;
+                        showStatus(`✅ Saved ${label} to CSV!`);
+                    }
 
                     // Auto-advance to next item
                     if (currentIndex < data.length - 1) {
@@ -314,6 +469,77 @@
                         displayItem(currentIndex); // Refresh current item
                         showStatus('🎉 Annotation complete!');
                     }
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Copy AI label to human label (database mode only)
+        async function copyAiLabel() {
+            if (data.length === 0) return;
+
+            const item = data[currentIndex];
+            if (!isDatabaseMode(item)) {
+                showStatus('❌ Copy AI label only works in database mode', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/copy-ai-label', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data
+                    data[currentIndex].human_esci_label = data[currentIndex].ai_esci_label;
+                    displayItem(currentIndex); // Refresh display
+                    showStatus(`✅ ${result.message}`);
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Clear human label (database mode) or esci_label (CSV mode)
+        async function clearCurrentLabel() {
+            if (data.length === 0) return;
+
+            try {
+                const response = await fetch('/api/delete-label', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data
+                    const item = data[currentIndex];
+                    if (isDatabaseMode(item)) {
+                        data[currentIndex].human_esci_label = '';
+                    } else {
+                        data[currentIndex].esci_label = '';
+                    }
+                    displayItem(currentIndex); // Refresh display
+                    showStatus(`✅ ${result.message}`);
                 } else {
                     showStatus('❌ Error: ' + result.error, 'error');
                 }
@@ -339,12 +565,22 @@
             showStatus(`📍 Jumped to record ${recordNumber}`);
         }
 
-        // Navigate
+        // Navigate (circular)
         function navigate(direction) {
-            const newIndex = currentIndex + direction;
-            if (newIndex >= 0 && newIndex < data.length) {
-                displayItem(newIndex);
+            if (data.length === 0) return;
+
+            let newIndex = currentIndex + direction;
+
+            // Wrap around: if going before first (newIndex < 0), go to last
+            if (newIndex < 0) {
+                newIndex = data.length - 1;
             }
+            // Wrap around: if going after last (newIndex >= length), go to first
+            else if (newIndex >= data.length) {
+                newIndex = 0;
+            }
+
+            displayItem(newIndex);
         }
 
         // Keyboard shortcuts
@@ -378,6 +614,14 @@
                     e.preventDefault();
                     navigate(1);
                     break;
+                case 'escape':
+                    e.preventDefault();
+                    clearCurrentLabel();
+                    break;
+                case 'enter':
+                    e.preventDefault();
+                    copyAiLabel();
+                    break;
             }
         });
 
@@ -394,9 +638,156 @@
             });
         });
 
+        // Edit query functionality
+        function editQuery() {
+            const currentQuery = document.getElementById('queryText').textContent;
+            document.getElementById('editQueryInput').value = currentQuery;
+            document.getElementById('editQueryModal').style.display = 'block';
+        }
+
+        async function saveQueryEdit() {
+            const newQuery = document.getElementById('editQueryInput').value.trim();
+            if (!newQuery) {
+                showStatus('❌ Query cannot be empty', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/update-query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex,
+                        query: newQuery
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data
+                    data[currentIndex].query = newQuery;
+                    displayItem(currentIndex); // Refresh display
+                    closeModal('editQueryModal');
+                    showStatus('✅ Query updated successfully!');
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Delete example functionality
+        function deleteExample() {
+            document.getElementById('confirmDeleteModal').style.display = 'block';
+        }
+
+        async function confirmDeleteExample() {
+            try {
+                const response = await fetch('/api/delete-example', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Remove from local data array
+                    data.splice(currentIndex, 1);
+
+                    // Adjust current index if needed
+                    if (currentIndex >= data.length && data.length > 0) {
+                        currentIndex = data.length - 1;
+                    }
+
+                    closeModal('confirmDeleteModal');
+
+                    if (data.length === 0) {
+                        showStatus('📊 All examples deleted!');
+                        document.getElementById('mainContent').style.display = 'none';
+                        document.getElementById('fileInfo').textContent = 'No data remaining';
+                    } else {
+                        displayItem(currentIndex);
+                        showStatus(`✅ ${result.message}`);
+                        // Update skip input max value
+                        document.getElementById('skipToRecord').max = data.length;
+                    }
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Delete label functionality
+        function deleteLabel() {
+            document.getElementById('confirmDeleteLabelModal').style.display = 'block';
+        }
+
+        async function confirmDeleteLabel() {
+            try {
+                const response = await fetch('/api/delete-label', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data - clear the appropriate label
+                    const item = data[currentIndex];
+                    if (isDatabaseMode(item)) {
+                        // Database mode: clear human label
+                        data[currentIndex].human_esci_label = '';
+                    } else {
+                        // CSV mode: clear combined label
+                        data[currentIndex].esci_label = '';
+                    }
+                    displayItem(currentIndex); // Refresh display
+                    closeModal('confirmDeleteLabelModal');
+                    showStatus(`✅ ${result.message}`);
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Modal management
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+
         console.log('🏷️ ESCI Annotation Tool loaded');
         console.log('Keyboard shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate');
         console.log('✅ Changes save directly to CSV file!');
+        console.log('✏️ New features: Edit queries, delete examples, clear labels');
     </script>
 </body>
 </html>

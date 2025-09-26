@@ -1,0 +1,7 @@
+experiment_name,run_id,generation_type,migration_status,esci_label,data_gen_hash,start_idx,end_idx,limit,batch_size,model,total_queries_generated,unique_queries_generated,successful_matches,runtime_seconds,start_time,end_time
+Initial_Generation,52a7259b2e854d7e9838568133a38d63,initial_generation,migrated,I,f2b5403,0,199,200,100,gpt-5,399.0,0.0,0.0,753.7520160675049,2025-09-25 07:10:11.006000+00:00,2025-09-25 07:22:45.041000+00:00
+Initial_Generation,3802814759d244af89aae038575f0202,initial_generation,migrated,E,22174f7,0,999,1000,50,gpt-5,1578.0,0.0,0.0,842.9801919460297,2025-09-24 10:00:23.311000+00:00,2025-09-24 10:14:26.586000+00:00
+Initial_Generation,0c611a39b1844107b10d4f7ac9282770,initial_generation,migrated,E,028ea64,1000,2999,2000,50,gpt-5,2800.0,0.0,0.0,796.2853078842163,2025-09-24 10:45:15.589000+00:00,2025-09-24 10:58:32.340000+00:00
+Initial_Generation,9f61abdd8bde40a28208f381504db898,initial_generation,migrated,S,c3eb958,11000,11199,200,100,gpt-5,246.0,0.0,0.0,419.8372027873993,2025-09-25 07:26:39.394000+00:00,2025-09-25 07:33:39.480000+00:00
+Initial_Generation,a5fec499e1bc4cdebbe7952da5e6e7ff,initial_generation,migrated,C,04ce98a,14000,14399,400,50,gpt-5,798.0,0.0,0.0,473.2458109855652,2025-09-25 10:55:14.999000+00:00,2025-09-25 11:03:08.517000+00:00
+Intent_Generation,bc54925269c74aaba03741b1214c7766,intent_generation_2step,migrated_partial,E,48490b2,9000,9999,1000,50,gpt-5,1942.0,1506.0,971.0,628.953696012497,2025-09-24 18:42:54.750000+00:00,2025-09-24 18:53:23.975000+00:00
