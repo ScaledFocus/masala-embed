@@ -16,8 +16,8 @@ import pandas as pd
 from flask import Flask, jsonify, render_template, request
 
 # Import database utilities
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'database', 'utils'))
-from db_utils import get_db_connection, execute_query
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "database", "utils"))
+from db_utils import execute_query, get_db_connection
 
 app = Flask(__name__)
 
@@ -195,7 +195,7 @@ def copy_ai_label():
         return jsonify({"error": "Copy AI label only works in database mode"}), 400
 
     # Get the AI label
-    ai_label = df.iloc[index].get('ai_esci_label')
+    ai_label = df.iloc[index].get("ai_esci_label")
     if not ai_label:
         return jsonify({"error": "No AI label to copy"}), 400
 
@@ -204,7 +204,7 @@ def copy_ai_label():
         return jsonify({"error": "Failed to save label to database"}), 500
 
     # Update DataFrame
-    df.at[index, 'human_esci_label'] = ai_label
+    df.at[index, "human_esci_label"] = ai_label
 
     return jsonify({"success": True, "message": f"Copied AI label: {ai_label}"})
 
@@ -235,7 +235,7 @@ def get_labeler_id_from_name(labeler_name):
         if result.empty:
             print(f"Error: Labeler '{labeler_name}' not found in database")
             sys.exit(1)
-        return int(result.iloc[0]['id'])
+        return int(result.iloc[0]["id"])
     except Exception as e:
         print(f"Error getting labeler ID: {e}")
         sys.exit(1)
@@ -266,7 +266,9 @@ def load_database_data(run_id, labeler_name):
         JOIN query q ON e.query_id = q.id
         JOIN consumable c ON e.consumable_id = c.id
         LEFT JOIN label ai_label ON e.id = ai_label.example_id
-            AND ai_label.labeler_id = (SELECT id FROM labeler WHERE name = e.example_gen_hash)
+            AND ai_label.labeler_id = (
+                SELECT id FROM labeler WHERE name = e.example_gen_hash
+            )
         LEFT JOIN label human_label ON e.id = human_label.example_id
             AND human_label.labeler_id = %s
         WHERE q.mlflow_run_id = %s
@@ -279,13 +281,12 @@ def load_database_data(run_id, labeler_name):
             print(f"Error: No examples found for MLflow run '{run_id}'")
             sys.exit(1)
 
-
         print(f"Loaded {len(df)} examples from database for run {run_id}")
         print(f"Labeler: {labeler_name} (ID: {labeler_id})")
 
         # Show label statistics
-        ai_labeled = df['ai_esci_label'].notna().sum()
-        human_labeled = df['human_esci_label'].notna().sum()
+        ai_labeled = df["ai_esci_label"].notna().sum()
+        human_labeled = df["human_esci_label"].notna().sum()
         print(f"AI labels: {ai_labeled}, Human labels: {human_labeled}")
 
         return True
@@ -300,24 +301,30 @@ def save_label_to_database(example_index, esci_label):
     global df, labeler_id
 
     try:
-        example_id = int(df.iloc[example_index]['example_id'])
+        example_id = int(df.iloc[example_index]["example_id"])
 
         # Insert or update label in database
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 # First try to update existing label
-                cursor.execute("""
+                cursor.execute(
+                    """
                     UPDATE label
                     SET esci_label = %s, created_at = NOW()
                     WHERE example_id = %s AND labeler_id = %s
-                """, (esci_label, example_id, labeler_id))
+                """,
+                    (esci_label, example_id, labeler_id),
+                )
 
                 # If no rows updated, insert new label
                 if cursor.rowcount == 0:
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         INSERT INTO label (labeler_id, example_id, esci_label)
                         VALUES (%s, %s, %s)
-                    """, (labeler_id, example_id, esci_label))
+                    """,
+                        (labeler_id, example_id, esci_label),
+                    )
 
                 conn.commit()
 
@@ -333,37 +340,43 @@ def update_query_in_database(example_index, new_query_text):
     global df
 
     try:
-        example_id = int(df.iloc[example_index]['example_id'])
-        current_query_id = int(df.iloc[example_index]['query_id'])
+        example_id = int(df.iloc[example_index]["example_id"])
+        current_query_id = int(df.iloc[example_index]["query_id"])
 
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 # Check if the new query text already exists globally
                 cursor.execute(
                     "SELECT id FROM query WHERE query_content = %s LIMIT 1",
-                    (new_query_text,)
+                    (new_query_text,),
                 )
                 existing_query = cursor.fetchone()
 
                 if existing_query:
                     # Reuse existing query - update example to point to it
                     existing_query_id = existing_query[0]
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         UPDATE example SET query_id = %s WHERE id = %s
-                    """, (existing_query_id, example_id))
+                    """,
+                        (existing_query_id, example_id),
+                    )
 
                     # Update our DataFrame
-                    df.at[example_index, 'query_id'] = existing_query_id
-                    df.at[example_index, 'query'] = new_query_text
+                    df.at[example_index, "query_id"] = existing_query_id
+                    df.at[example_index, "query"] = new_query_text
 
                 else:
                     # Update current query text (first occurrence owns metadata)
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         UPDATE query SET query_content = %s WHERE id = %s
-                    """, (new_query_text, current_query_id))
+                    """,
+                        (new_query_text, current_query_id),
+                    )
 
                     # Update our DataFrame
-                    df.at[example_index, 'query'] = new_query_text
+                    df.at[example_index, "query"] = new_query_text
 
                 conn.commit()
 
@@ -379,8 +392,8 @@ def delete_example_from_database(example_index):
     global df
 
     try:
-        example_id = int(df.iloc[example_index]['example_id'])
-        query_id = int(df.iloc[example_index]['query_id'])
+        example_id = int(df.iloc[example_index]["example_id"])
+        query_id = int(df.iloc[example_index]["query_id"])
 
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
@@ -392,7 +405,9 @@ def delete_example_from_database(example_index):
                 cursor.execute("DELETE FROM example WHERE id = %s", (example_id,))
 
                 # Check if this query has any remaining examples
-                cursor.execute("SELECT COUNT(*) FROM example WHERE query_id = %s", (query_id,))
+                cursor.execute(
+                    "SELECT COUNT(*) FROM example WHERE query_id = %s", (query_id,)
+                )
                 remaining_examples = cursor.fetchone()[0]
 
                 # If no examples left, delete the orphaned query
@@ -418,22 +433,26 @@ def delete_label_from_database(example_index):
     global df, labeler_id
 
     try:
-        example_id = int(df.iloc[example_index]['example_id'])
+        example_id = int(df.iloc[example_index]["example_id"])
 
         with get_db_connection() as conn:
             with conn.cursor() as cursor:
                 # Delete only this labeler's label
-                cursor.execute("""
+                cursor.execute(
+                    """
                     DELETE FROM label
                     WHERE example_id = %s AND labeler_id = %s
-                """, (example_id, labeler_id))
+                """,
+                    (example_id, labeler_id),
+                )
 
                 conn.commit()
 
         # Update DataFrame - clear human label
-        df.at[example_index, 'human_esci_label'] = None
+        df.at[example_index, "human_esci_label"] = None
         # Recalculate combined label (fall back to AI label)
-        df.at[example_index, 'esci_label'] = df.iloc[example_index]['ai_esci_label'] or ''
+        ai_label = df.iloc[example_index]["ai_esci_label"]
+        df.at[example_index, "esci_label"] = ai_label or ""
 
         return True
 
@@ -450,32 +469,24 @@ def parse_arguments():
 
     # Mutually exclusive group for data source
     data_group = parser.add_mutually_exclusive_group(required=True)
+    data_group.add_argument("csv_file", nargs="?", help="Path to CSV file to annotate")
     data_group.add_argument(
-        "csv_file",
-        nargs="?",
-        help="Path to CSV file to annotate"
-    )
-    data_group.add_argument(
-        "--database",
-        action="store_true",
-        help="Use database mode instead of CSV file"
+        "--database", action="store_true", help="Use database mode instead of CSV file"
     )
 
     # Database-specific arguments
     parser.add_argument(
         "--run-id",
-        help="MLflow run ID to load examples from (required with --database)"
+        help="MLflow run ID to load examples from (required with --database)",
     )
     parser.add_argument(
-        "--labeler-name",
-        default="Luv",
-        help="Name of the labeler (default: Luv)"
+        "--labeler-name", default="Luv", help="Name of the labeler (default: Luv)"
     )
     parser.add_argument(
         "--page-size",
         type=int,
         default=6,
-        help="Number of records to display per page (default: 6)"
+        help="Number of records to display per page (default: 6)",
     )
 
     return parser.parse_args()
