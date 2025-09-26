@@ -1,3 +1,18 @@
+# output_dir: ./outputs
+# leaderboard_json: ./outputs/nanobeir_leaderboard.json
+
+# datasets: ["scifact"]
+
+# cost_per_1k:
+#   qwen_embedding: 0.10   # <- set this to whatever your team uses
+
+# models:
+#   qwen_embedding:
+#     hf_id: Qwen/qwen3-embedding-0.6b
+#     pooling: mean         # mean | cls | last_token (weâ€™ll implement mean)
+#     normalize: true       # L2-normalize embeddings
+#     max_len: 512          # truncate to fit model context
+
 output_dir: ./outputs
 leaderboard_json: ./outputs/nanobeir_leaderboard.json
 
@@ -9,6 +24,6 @@ cost_per_1k:
 models:
   qwen_embedding:
     hf_id: Qwen/qwen3-embedding-0.6b
-    pooling: mean       # mean | cls | last_token (we’ll implement mean)
+    pooling: mean       # mean | cls | last_token (weâ€™ll implement mean)
     normalize: true     # L2-normalize embeddings
     max_len: 512        # truncate to fit model context

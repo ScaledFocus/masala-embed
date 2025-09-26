@@ -100,10 +100,7 @@ class STModel:
 
     def encode_queries(self, queries, batch_size=32, **kwargs):
         return self.model.encode(
-            queries,
-            convert_to_numpy=True,
-            batch_size=batch_size,
-            show_progress_bar=False,
+            queries, convert_to_numpy=True, batch_size=batch_size, show_progress_bar=False
         )
 
     def encode_corpus(self, corpus, batch_size=32, **kwargs):
@@ -117,99 +114,89 @@ class STModel:
         )
 
 
-class LlamaServerEncoder:
-    """Client for llama.cpp --embedding server (/embedding). Ensures fixed-dim vectors."""
+class QwenHFEncoder:
+    """
+    HF encoder for Qwen/qwen3-embedding-0.6b (or compatible).
+    - Handles dict or list corpora (BEIR can pass either)
+    - Mean-pools token embeddings
+    - Optional L2 normalization
+    """
 
-    def __init__(self, endpoint: str):
-        import requests
-        from requests.adapters import HTTPAdapter
-        from urllib3.util.retry import Retry
+    def __init__(self, hf_id: str, pooling: str = "mean", normalize: bool = True, max_len: int = 512):
+        self.torch = torch
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.pooling = pooling
+        self.normalize = normalize
+        self.max_len = max_len
 
-        self.session = requests.Session()
-        retry = Retry(total=3, backoff_factor=0.2, status_forcelist=(502, 503, 504))
-        self.session.mount("http://", HTTPAdapter(max_retries=retry))
-        self.endpoint = endpoint.rstrip("/")
-        self._dim = None  # lock the embedding size after first good response
+        # Use slow tokenizer + trust_remote_code to avoid the fast-tokenizer JSON error
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            hf_id, use_fast=False, trust_remote_code=True
+        )
+        self.model = AutoModel.from_pretrained(hf_id, trust_remote_code=True).to(
+            self.device
+        )
+        self.model.eval()
 
-    def _parse_embedding_json(self, js):
-        # try to dig out the first numeric list from many shapes
-        def first_vector(obj):
-            if isinstance(obj, dict):
-                # common fields
-                for k in ("embedding", "vector", "values", "data"):
-                    if k in obj:
-                        return first_vector(obj[k])
-                # otherwise try the first value
-                if obj:
-                    return first_vector(next(iter(obj.values())))
-                return []
-            if isinstance(obj, (list, tuple)):
-                if not obj:
-                    return []
-                if isinstance(obj[0], dict):
-                    return first_vector(obj[0])
-                if isinstance(obj[0], (list, tuple)):
-                    return first_vector(obj[0])
-                return obj
-            return [obj]
+    def _encode_batch(self, texts, batch_size=32):
+        embs = []
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i : i + batch_size]
+            toks = self.tokenizer(
+                batch,
+                padding=True,
+                truncation=True,
+                max_length=self.max_len,
+                return_tensors="pt",
+            ).to(self.device)
 
-        return first_vector(js)
+            with self.torch.no_grad():
+                out = self.model(**toks)
 
-    def _to_1d_numeric(self, obj):
-        def flatten(xs):
-            for x in xs:
-                if isinstance(x, (list, tuple)):
-                    yield from flatten(x)
-                elif isinstance(x, dict):
-                    for k in ("vector", "embedding", "values", "data"):
-                        if k in x:
-                            yield from flatten(x[k])
-                            break
-                    else:
-                        for v in x.values():
-                            yield from flatten(v)
-                else:
-                    yield x
+            # Prefer last_hidden_state, fall back to pooler_output if present
+            if hasattr(out, "last_hidden_state") and out.last_hidden_state is not None:
+                x = out.last_hidden_state  # [B, T, H]
+                # attention mask-based mean pooling
+                mask = toks.attention_mask.unsqueeze(-1).type_as(x)  # [B, T, 1]
+                x = (x * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)  # [B, H]
+            elif hasattr(out, "pooler_output") and out.pooler_output is not None:
+                x = out.pooler_output  # [B, H]
+            else:
+                # very defensive fallback
+                x = out[0] if isinstance(out, (list, tuple)) else out
 
-        vec = list(flatten(self._parse_embedding_json(obj)))
-        vec = [float(x) for x in vec]
-        return vec
+            if self.normalize:
+                x = self.torch.nn.functional.normalize(x, p=2, dim=-1)
 
-    def _normalize_vec(self, vec):
-        vec = self._to_1d_numeric(vec)
-        if self._dim is None:
-            self._dim = len(vec)
-            print(f"[llama] locked embedding dim = {self._dim}", flush=True)
-        if len(vec) < self._dim:
-            vec = vec + [0.0] * (self._dim - len(vec))
-        elif len(vec) > self._dim:
-            vec = vec[: self._dim]
-        return vec
+            embs.extend(x.detach().cpu().tolist())
+        return embs
 
-    def _embed_one(self, text: str, timeout=60):
-        orig = text
-        for backoff, shrink in zip(RETRY_BACKOFF, RETRY_SHRINK):
-            if backoff:
-                time.sleep(backoff)
-            t = orig[: int(MAX_CHARS * shrink)]
-            r = self.session.post(self.endpoint, json={"content": t}, timeout=timeout)
-            if r.status_code >= 500:
-                continue
-            r.raise_for_status()
-            return self._normalize_vec(r.json())
-        # final tiny attempt
-        t = orig[: min(512, len(orig))]
-        r = self.session.post(self.endpoint, json={"content": t}, timeout=timeout)
-        r.raise_for_status()
-        return self._normalize_vec(r.json())
+    def encode_queries(self, queries, batch_size=32, **kwargs):
+        # queries is a list[str]
+        return self._encode_batch(list(queries), batch_size=batch_size)
 
-    def encode_queries(self, queries, batch_size=1, **kwargs):
-        return [self._embed_one(q) for q in queries]
+    def encode_corpus(self, corpus, batch_size=32, **kwargs):
+        """
+        corpus can be:
+          - dict: {doc_id: {"title":..., "text":...}, ...}
+          - list: [{"title":..., "text":...}, ...]
+        Return must be a list of embeddings aligned to the order BEIR provides.
+        """
+        if isinstance(corpus, dict):
+            docs_iter = corpus.values()
+        elif isinstance(corpus, list):
+            docs_iter = corpus
+        else:
+            raise TypeError(f"Unsupported corpus type: {type(corpus)}")
 
-    def encode_corpus(self, corpus, batch_size=1, **kwargs):
-        docs_iter = corpus.values() if isinstance(corpus, dict) else corpus
-        texts = [_doc_text(d) for d in docs_iter]
-        return [self._embed_one(t) for t in texts]
+        def _merge(doc):
+            title = (doc.get("title") or "").strip()
+            text = (doc.get("text") or "").strip()
+            s = (title + " " + text).strip()
+            return s[:2000] if len(s) > 2000 else s
+
+        texts = [_merge(d) for d in docs_iter]
+        return self._encode_batch(texts, batch_size=batch_size)
 
 
 # ----------------- Evaluation + Debug Peek -----------------
@@ -232,13 +219,15 @@ def debug_one_query(corpus, queries, qrels, results, k=5):
     print(f"Query ID: {qid}")
     print(f"Query: {q_text}")
     print(
-        f"Relevant doc IDs ({len(relevant)}): {sorted(list(relevant))[:10]}{' ...' if len(relevant) > 10 else ''}"
+        f"Relevant doc IDs ({len(relevant)}): {sorted(list(relevant))[:10]}"
+        f"{' ...' if len(relevant)>10 else ''}"
     )
-    print("\nTop-{} retrieved:".format(k))
+    print(f"\nTop-{k} retrieved:")
     for i, (did, score) in enumerate(ranked, 1):
         title = (
-            corpus.get(did, {}).get("title") if isinstance(corpus, dict) else None
-        ) or ""
+            (corpus.get(did, {}).get("title") if isinstance(corpus, dict) else None)
+            or ""
+        )
         print(f"{i:>2}. {did}  score={score:.4f}  title={title[:80]}")
     print(f"\nOverlap@{k}: {sorted(list(overlap)) if overlap else 'None'}")
     print("=====================================\n", flush=True)
