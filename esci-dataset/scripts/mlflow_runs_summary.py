@@ -109,7 +109,8 @@ def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
 
         try:
             # Search for migrated runs (both full and partial) in this experiment
-            # MLflow doesn't support OR in filter strings, so we need to search separately
+            # MLflow doesn't support OR in filter strings, so we need to search
+            # separately
             migrated_runs = mlflow.search_runs(
                 experiment_ids=[experiment.experiment_id],
                 filter_string="tags.data_status = 'migrated'",
@@ -130,7 +131,8 @@ def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
                 continue
 
             logger.info(
-                f"Found {len(runs)} migrated runs (full and partial) in experiment: {experiment.name}"
+                f"Found {len(runs)} migrated runs (full and partial) in experiment: "
+                f"{experiment.name}"
             )
 
             for _, run in runs.iterrows():
@@ -178,7 +180,8 @@ def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
                 # Extract ESCI label
                 esci_label = params.get("esci_label", "unknown")
 
-                # For Intent generation experiments, default to "E" if no esci_label is found
+                # For Intent generation experiments, default to "E" if no
+                # esci_label is found
                 if esci_label == "unknown" and experiment.name.startswith("Intent"):
                     esci_label = "E"
 
@@ -241,7 +244,8 @@ def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
 def main():
     """Main execution."""
     parser = argparse.ArgumentParser(
-        description="Generate CSV summary of migrated MLflow runs (both full and partial)"
+        description="Generate CSV summary of migrated MLflow runs "
+        "(both full and partial)"
     )
     parser.add_argument(
         "--experiment-name",
@@ -297,7 +301,9 @@ def main():
     print(f"Total migrated runs: {len(summary_df)}")
     print(f"Experiments: {summary_df['experiment_name'].nunique()}")
     print(f"Generation types: {summary_df['generation_type'].value_counts().to_dict()}")
-    print(f"Migration statuses: {summary_df['migration_status'].value_counts().to_dict()}")
+    print(
+        f"Migration statuses: {summary_df['migration_status'].value_counts().to_dict()}"
+    )
     print(f"Total queries generated: {summary_df['total_queries_generated'].sum():,}")
     print(f"Total unique queries: {summary_df['unique_queries_generated'].sum():,}")
     date_range = f"{summary_df['start_time'].min()} to {summary_df['start_time'].max()}"
