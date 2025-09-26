@@ -14,7 +14,7 @@ import os
 import random
 import statistics
 import time
-from typing import Any, Dict, List
+from typing import Any
 
 # --- Third-Party Imports ---
 import torch
@@ -33,13 +33,13 @@ RETRY_SHRINK = [1.00, 0.60, 0.35]
 
 
 # ----------------- Small utilities -----------------
-def p95(latencies_ms: List[float]) -> float:
+def p95(latencies_ms: list[float]) -> float:
     if not latencies_ms:
         return 0.0
     return float(statistics.quantiles(latencies_ms, n=100)[94])
 
 
-def time_calls(fn, payloads: List[Any], warmup: int = 3) -> float:
+def time_calls(fn, payloads: list[Any], warmup: int = 3) -> float:
     if not payloads:
         return 0.0
     for _ in range(max(0, warmup)):
@@ -87,7 +87,7 @@ def load_dataset(name: str, base_dir: str = "./datasets"):
 
 
 # ----------------- Model wrappers -----------------
-def _doc_text(doc: Dict[str, str]) -> str:
+def _doc_text(doc: dict[str, str]) -> str:
     title = (doc.get("title") or "").strip()
     text = (doc.get("text") or "").strip()
     merged = (title + " " + text).strip()
@@ -100,7 +100,10 @@ class STModel:
 
     def encode_queries(self, queries, batch_size=32, **kwargs):
         return self.model.encode(
-            queries, convert_to_numpy=True, batch_size=batch_size, show_progress_bar=False
+            queries,
+            convert_to_numpy=True,
+            batch_size=batch_size,
+            show_progress_bar=False,
         )
 
     def encode_corpus(self, corpus, batch_size=32, **kwargs):
@@ -122,7 +125,13 @@ class QwenHFEncoder:
     - Optional L2 normalization
     """
 
-    def __init__(self, hf_id: str, pooling: str = "mean", normalize: bool = True, max_len: int = 512):
+    def __init__(
+        self,
+        hf_id: str,
+        pooling: str = "mean",
+        normalize: bool = True,
+        max_len: int = 512
+    ):
         self.torch = torch
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.pooling = pooling
@@ -163,7 +172,7 @@ class QwenHFEncoder:
                 x = out.pooler_output  # [B, H]
             else:
                 # very defensive fallback
-                x = out[0] if isinstance(out, (list, tuple)) else out
+                x = out[0] if isinstance(out, (list | tuple)) else out
 
             if self.normalize:
                 x = self.torch.nn.functional.normalize(x, p=2, dim=-1)
@@ -308,7 +317,7 @@ def main():
     ap.add_argument("--config", required=True)
     args = ap.parse_args()
 
-    with open(args.config, "r") as f:
+    with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
     out_dir = cfg.get("output_dir", "./outputs")
@@ -321,7 +330,7 @@ def main():
     cost = cfg.get("cost_per_1k", {})
     models_cfg = cfg.get("models", {})
 
-    all_out: Dict[str, Dict[str, Any]] = {}
+    all_out: dict[str, dict[str, Any]] = {}
 
     for ds in datasets:
         corpus, queries, qrels = load_dataset(ds)
