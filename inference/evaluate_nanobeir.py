@@ -310,13 +310,16 @@ def evaluate_model(beir_model, corpus, queries, qrels, cost_per_1k: float):
         "Cost_per_1k_queries": float(cost_per_1k),
     }
 
+
 # ... (inside evaluate_nanobier.py)
+
 
 class VLLMAPIEncoder:
     """
     Client for a vLLM OpenAI-compatible server that provides embeddings.
     - Handles retry logic for robustness.
     """
+
     def __init__(self, base_url: str, model_name: str, max_len: int = 512):
         # NOTE: vLLM embed API uses the client, but is simpler than chat/completion.
         self.client = OpenAI(base_url=base_url, api_key="sk-not-used-by-vllm-server")
@@ -331,7 +334,7 @@ class VLLMAPIEncoder:
             title = (d.get("title") or "").strip()
             text = (d.get("text") or "").strip()
             s = (title + " " + text).strip()
-            texts.append(s[:self.max_len] if len(s) > self.max_len else s)
+            texts.append(s[: self.max_len] if len(s) > self.max_len else s)
         return texts
 
     def _call_api(self, texts: list[str]) -> list[list[float]]:
@@ -377,6 +380,7 @@ class VLLMAPIEncoder:
         # might need to add chunking/batching around _call_api if the number
         # of documents exceeds vLLM's max batch size (which is usually very large).
         return self._call_api(texts)
+
 
 # ----------------- Main -----------------
 def main():
