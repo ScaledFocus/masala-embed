@@ -23,6 +23,7 @@ from beir import util
 from beir.datasets.data_loader import GenericDataLoader
 from beir.retrieval.evaluation import EvaluateRetrieval
 from beir.retrieval.search.dense import DenseRetrievalExactSearch as DRES
+from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModel, AutoTokenizer
 
@@ -309,6 +310,73 @@ def evaluate_model(beir_model, corpus, queries, qrels, cost_per_1k: float):
         "Cost_per_1k_queries": float(cost_per_1k),
     }
 
+# ... (inside evaluate_nanobier.py)
+
+class VLLMAPIEncoder:
+    """
+    Client for a vLLM OpenAI-compatible server that provides embeddings.
+    - Handles retry logic for robustness.
+    """
+    def __init__(self, base_url: str, model_name: str, max_len: int = 512):
+        # NOTE: vLLM embed API uses the client, but is simpler than chat/completion.
+        self.client = OpenAI(base_url=base_url, api_key="sk-not-used-by-vllm-server")
+        self.model_name = model_name
+        self.max_len = max_len
+        self.normalize = True
+
+    def _merge_and_truncate(self, doc_list):
+        # Helper function to preprocess text the same way
+        texts = []
+        for d in doc_list:
+            title = (d.get("title") or "").strip()
+            text = (d.get("text") or "").strip()
+            s = (title + " " + text).strip()
+            texts.append(s[:self.max_len] if len(s) > self.max_len else s)
+        return texts
+
+    def _call_api(self, texts: list[str]) -> list[list[float]]:
+        # Using the OpenAI-compatible embedding endpoint
+        # Add retry logic to handle transient network/server issues
+        for delay in RETRY_BACKOFF:
+            time.sleep(delay)
+            try:
+                # The input list of strings is sent to the /v1/embeddings endpoint
+                response = self.client.embeddings.create(
+                    model=self.model_name,
+                    input=texts,
+                )
+
+                # The response is typically a list of dicts with 'embedding' key
+                # We extract the embeddings and return them as a list of lists (vectors)
+                embeddings = [d.embedding for d in response.data]
+                return embeddings
+
+            except Exception as e:
+                print(f"[vLLM-API-ERROR] Failed to get embeddings: {e}. Retrying...")
+                continue
+
+        # If all retries fail, raise the last exception or return an error state
+        raise RuntimeError("vLLM API failed after all retries.")
+
+    def encode_queries(self, queries, batch_size=32, **kwargs):
+        # queries is a list[str]. Note: vLLM handles the batching internally
+        return self._call_api(list(queries))
+
+    def encode_corpus(self, corpus, batch_size=32, **kwargs):
+        # corpus is dict or list (BEIR-compatible format)
+        if isinstance(corpus, dict):
+            docs_iter = corpus.values()
+        elif isinstance(corpus, list):
+            docs_iter = corpus
+        else:
+            raise TypeError(f"Unsupported corpus type: {type(corpus)}")
+
+        texts = self._merge_and_truncate(docs_iter)
+        # Note: vLLM API server is better at handling large corpus input than
+        # the local HF encoder, but for robustness with huge datasets, you
+        # might need to add chunking/batching around _call_api if the number
+        # of documents exceeds vLLM's max batch size (which is usually very large).
+        return self._call_api(texts)
 
 # ----------------- Main -----------------
 def main():
@@ -342,6 +410,23 @@ def main():
                 STModel(m_id), corpus, queries, qrels, cost.get("baseline", 0.0)
             )
             all_out[ds]["baseline"] = out
+
+        if "vllm_api_encoder" in models_cfg:
+            m = models_cfg["vllm_api_encoder"]
+            base_url = m.get("base_url", "http://localhost:8000/v1")
+            model_name = m.get("model_name", "Qwen/qwen3-embedding-0.6b")
+            max_len = m.get("max_len", 512)
+            print(
+                f"[vllm_api_encoder] {model_name} | base_url={base_url} "
+                f"max_len={max_len}"
+            )
+            encoder = VLLMAPIEncoder(
+                base_url=base_url, model_name=model_name, max_len=max_len
+            )
+            out = evaluate_model(
+                encoder, corpus, queries, qrels, cost.get("vllm_api_encoder", 0.0)
+            )
+            all_out[ds]["vllm_api_encoder"] = out
 
         if "qwen_embedding" in models_cfg:
             m = models_cfg["qwen_embedding"]

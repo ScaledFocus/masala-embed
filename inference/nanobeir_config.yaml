@@ -1,29 +1,22 @@
-# output_dir: ./outputs
-# leaderboard_json: ./outputs/nanobeir_leaderboard.json
-
-# datasets: ["scifact"]
-
-# cost_per_1k:
-#   qwen_embedding: 0.10   # <- set this to whatever your team uses
-
-# models:
-#   qwen_embedding:
-#     hf_id: Qwen/qwen3-embedding-0.6b
-#     pooling: mean         # mean | cls | last_token (weâ€™ll implement mean)
-#     normalize: true       # L2-normalize embeddings
-#     max_len: 512          # truncate to fit model context
-
 output_dir: ./outputs
 leaderboard_json: ./outputs/nanobeir_leaderboard.json
 
 datasets: ["scifact"]
 
 cost_per_1k:
-  qwen_embedding: 0.10  # <- set this to whatever your team uses
+  #qwen_embedding: 0.10  # <- set this to whatever your team uses
+  vllm_api_encoder: 0.05
 
 models:
-  qwen_embedding:
-    hf_id: Qwen/qwen3-embedding-0.6b
-    pooling: mean       # mean | cls | last_token (weâ€™ll implement mean)
-    normalize: true     # L2-normalize embeddings
-    max_len: 512        # truncate to fit model context
+  # qwen_embedding:
+  #   hf_id: Qwen/qwen3-embedding-0.6b
+  #   pooling: mean       # mean | cls | last_token (weâ€™ll implement mean)
+  #   normalize: true     # L2-normalize embeddings
+  #   max_len: 512        # truncate to fit model context
+  
+  vllm_api_encoder:
+    # This should match the model ID you start the vLLM server with
+    model_name: Qwen/qwen3-embedding-0.6b 
+    # vLLM's default OpenAI-compatible API endpoint
+    base_url: http://172.24.16.155:8000/v1
+    max_len: 512 # Truncate to match the model's context
