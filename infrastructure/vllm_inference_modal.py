@@ -40,8 +40,9 @@ vllm_cache_vol = modal.Volume.from_name("vllm-cache", create_if_missing=True)
 app = modal.App("qwen3-embedding-inference")
 
 NUM_GPU = 1
-MINUTES = 60 # seconds
+MINUTES = 60  # seconds
 VLLM_PORT = 8000
+
 
 @app.function(
     image=vllm_image,
@@ -65,13 +66,15 @@ def serve():
         MODEL_REVISION,
         "--served-model-name",
         MODEL_NAME,
-        "--task", "embed",
+        "--task",
+        "embed",
         "--host",
         "0.0.0.0",
         "--port",
         str(VLLM_PORT),
         "--enforce-eager",
-        "--tensor-parallel-size", str(NUM_GPU),
+        "--tensor-parallel-size",
+        str(NUM_GPU),
     ]
 
     subprocess.Popen(" ".join(cmd), shell=True)
