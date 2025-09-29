@@ -114,6 +114,8 @@
         .btn-control { background-color: #007bff; color: white; }
         .btn-edit { background-color: #ffc107; color: black; }
         .btn-delete { background-color: #dc3545; color: white; }
+        .btn-review { background-color: #28a745; color: white; }
+        .btn-review.active { background-color: #6f42c1; color: white; }
 
         .shortcuts {
             background-color: #e9ecef;
@@ -193,6 +195,9 @@
         <div class="header">
             <h1>🏷️ ESCI Dataset Annotation Tool</h1>
             <div id="fileInfo">Loading...</div>
+            <div id="reviewModeIndicator" style="display: none; background-color: #6f42c1; color: white; padding: 8px 15px; border-radius: 5px; margin-top: 10px; font-weight: bold;">
+                📋 Review Mode: Showing only human-annotated records
+            </div>
         </div>
 
         <div id="mainContent" style="display: none;">
@@ -217,6 +222,7 @@
                     <h3>🍽️ Consumable</h3>
                     <div><strong>ID:</strong> <span id="consumableId"></span></div>
                     <div class="consumable-name">📦 <span id="consumableName"></span></div>
+                    <div><strong>🥘 Ingredients:</strong> <span id="consumableIngredients"></span></div>
 
                 </div>
 
@@ -261,6 +267,12 @@
                 <button class="btn btn-control" onclick="window.location.reload()">🔄 Reload</button>
             </div>
 
+            <!-- Review Mode Controls -->
+            <div class="controls-row">
+                <button class="btn btn-review" id="reviewModeBtn" onclick="toggleReviewMode()">📋 Review Mode</button>
+                <button class="btn btn-control" onclick="showReviewStats()">📊 Stats</button>
+            </div>
+
             <!-- Advanced Actions -->
             <div class="controls-row">
                 <button class="btn btn-delete" onclick="deleteLabel()">🗑️ Clear Label</button>
@@ -270,7 +282,7 @@
             <!-- Keyboard Shortcuts -->
             <div class="shortcuts">
                 <strong>⌨️ Keyboard Shortcuts:</strong>
-                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate • Esc=Clear • Enter=Copy AI
+                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate • Esc=Clear • Enter=Copy AI • R=Review Mode • D=Delete Example
                 <br><strong>✅ Auto-saves to CSV file immediately!</strong>
             </div>
         </div>
@@ -326,11 +338,14 @@
         let data = [];
         let currentIndex = 0;
         let filename = '';
+        let reviewMode = false;
+        let totalRecords = 0;
 
         // Load data from Flask API
-        async function loadData() {
+        async function loadData(isReviewMode = false) {
             try {
-                const response = await fetch('/api/data');
+                const url = isReviewMode ? '/api/data?review_mode=true' : '/api/data';
+                const response = await fetch(url);
                 const result = await response.json();
 
                 if (result.error) {
@@ -340,14 +355,36 @@
 
                 data = result.data;
                 filename = result.filename;
+                reviewMode = result.review_mode || false;
+                totalRecords = result.total_records || result.total;
 
-                document.getElementById('fileInfo').textContent = `📁 ${filename} (${result.total} records)`;
+                // Update file info display
+                const recordsText = reviewMode ?
+                    `📋 ${filename} (${result.total} annotated / ${totalRecords} total)` :
+                    `📁 ${filename} (${result.total} records)`;
+                document.getElementById('fileInfo').textContent = recordsText;
+
+                // Update review mode indicator
+                const indicator = document.getElementById('reviewModeIndicator');
+                const reviewBtn = document.getElementById('reviewModeBtn');
+                if (reviewMode) {
+                    indicator.style.display = 'block';
+                    reviewBtn.textContent = '🚪 Exit Review';
+                    reviewBtn.classList.add('active');
+                } else {
+                    indicator.style.display = 'none';
+                    reviewBtn.textContent = '📋 Review Mode';
+                    reviewBtn.classList.remove('active');
+                }
+
                 document.getElementById('mainContent').style.display = 'block';
 
                 if (data.length > 0) {
                     // Update skip input max value
                     document.getElementById('skipToRecord').max = data.length;
                     displayItem(0);
+                } else if (reviewMode) {
+                    showStatus('📋 No annotated records found. Add some annotations first!', 'error');
                 }
             } catch (error) {
                 document.getElementById('fileInfo').textContent = 'Error loading data: ' + error.message;
@@ -369,6 +406,7 @@
             // Update content
             document.getElementById('consumableId').textContent = item.consumable_id || '';
             document.getElementById('consumableName').textContent = item.consumable_name || '';
+            document.getElementById('consumableIngredients').textContent = item.consumable_ingredients || 'Not specified';
             document.getElementById('queryText').textContent = item.query || '';
             document.getElementById('createdAt').textContent = item.created_at || '';
 
@@ -443,6 +481,7 @@
                     },
                     body: JSON.stringify({
                         index: currentIndex,
+                        example_id: data[currentIndex].example_id,
                         label: label
                     })
                 });
@@ -494,7 +533,8 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        index: currentIndex
+                        index: currentIndex,
+                        example_id: data[currentIndex].example_id
                     })
                 });
 
@@ -524,14 +564,15 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        index: currentIndex
+                        index: currentIndex,
+                        example_id: data[currentIndex].example_id
                     })
                 });
 
                 const result = await response.json();
 
                 if (result.success) {
-                    // Update local data
+                    // Update local data regardless of mode
                     const item = data[currentIndex];
                     if (isDatabaseMode(item)) {
                         data[currentIndex].human_esci_label = '';
@@ -563,6 +604,31 @@
             const targetIndex = recordNumber - 1;
             displayItem(targetIndex);
             showStatus(`📍 Jumped to record ${recordNumber}`);
+        }
+
+        // Toggle review mode
+        async function toggleReviewMode() {
+            const newReviewMode = !reviewMode;
+            await loadData(newReviewMode);
+
+            const modeText = newReviewMode ? 'entered' : 'exited';
+            showStatus(`📋 ${modeText.charAt(0).toUpperCase() + modeText.slice(1)} review mode`);
+        }
+
+        // Show annotation statistics
+        function showReviewStats() {
+            if (reviewMode) {
+                // In review mode, data.length is the annotated count
+                const annotatedCount = data.length;
+                const totalCount = totalRecords;
+                const percentage = totalCount > 0 ? Math.round((annotatedCount / totalCount) * 100) : 0;
+                showStatus(`📊 Reviewing: ${annotatedCount}/${totalCount} records annotated (${percentage}%)`);
+            } else {
+                // In normal mode, we need to calculate annotated count from the full dataset
+                // For now, just show the total count
+                const totalCount = data.length;
+                showStatus(`📊 Total records: ${totalCount}`);
+            }
         }
 
         // Navigate (circular)
@@ -622,6 +688,14 @@
                     e.preventDefault();
                     copyAiLabel();
                     break;
+                case 'r':
+                    e.preventDefault();
+                    toggleReviewMode();
+                    break;
+                case 'd':
+                    e.preventDefault();
+                    deleteExample();
+                    break;
             }
         });
 
@@ -660,6 +734,7 @@
                     },
                     body: JSON.stringify({
                         index: currentIndex,
+                        example_id: data[currentIndex].example_id,
                         query: newQuery
                     })
                 });
@@ -693,7 +768,8 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        index: currentIndex
+                        index: currentIndex,
+                        example_id: data[currentIndex].example_id
                     })
                 });
 
@@ -741,14 +817,17 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        index: currentIndex
+                        index: currentIndex,
+                        example_id: data[currentIndex].example_id
                     })
                 });
 
                 const result = await response.json();
 
                 if (result.success) {
-                    // Update local data - clear the appropriate label
+                    closeModal('confirmDeleteLabelModal');
+
+                    // Update local data regardless of mode
                     const item = data[currentIndex];
                     if (isDatabaseMode(item)) {
                         // Database mode: clear human label
@@ -758,7 +837,6 @@
                         data[currentIndex].esci_label = '';
                     }
                     displayItem(currentIndex); // Refresh display
-                    closeModal('confirmDeleteLabelModal');
                     showStatus(`✅ ${result.message}`);
                 } else {
                     showStatus('❌ Error: ' + result.error, 'error');
@@ -785,9 +863,9 @@
         });
 
         console.log('🏷️ ESCI Annotation Tool loaded');
-        console.log('Keyboard shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate');
+        console.log('Keyboard shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate, R=Review Mode, D=Delete Example');
         console.log('✅ Changes save directly to CSV file!');
-        console.log('✏️ New features: Edit queries, delete examples, clear labels');
+        console.log('✏️ New features: Edit queries, delete examples, clear labels, review mode');
     </script>
 </body>
 </html>

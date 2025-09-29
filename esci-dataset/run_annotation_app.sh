@@ -11,7 +11,7 @@ MODE="DATABASE"
 CSV_FILE=""
 
 # Database mode parameters (used when MODE="DATABASE")
-RUN_ID="52a7259b2e854d7e9838568133a38d63"
+RUN_ID="c03bcd7b302c4f83b35b73c9acfc5423"
 LABELER_NAME="Luv"
 
 # Display info
@@ -22,7 +22,7 @@ if [ "$MODE" = "DATABASE" ]; then
     echo "📊 Run ID: $RUN_ID"
     echo "👤 Labeler: $LABELER_NAME"
     echo "🌐 URL: http://localhost:5002"
-    echo "⌨️  Shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate, Esc=Clear, Enter=Copy AI"
+    echo "⌨️  Shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate, Esc=Clear, Enter=Copy AI, R=Review Mode"
     echo ""
 
     uv run python annotation/app.py --database --run-id "$RUN_ID" --labeler-name "$LABELER_NAME"
@@ -31,7 +31,7 @@ elif [ "$MODE" = "CSV" ]; then
     echo "📁 Mode: CSV File"
     echo "📁 File: $CSV_FILE"
     echo "🌐 URL: http://localhost:5002"
-    echo "⌨️  Shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate"
+    echo "⌨️  Shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate, R=Review Mode"
     echo ""
 
     # Check if CSV file exists
