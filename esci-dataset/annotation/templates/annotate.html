@@ -282,7 +282,8 @@
             <!-- Keyboard Shortcuts -->
             <div class="shortcuts">
                 <strong>⌨️ Keyboard Shortcuts:</strong>
-                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate • Esc=Clear • Enter=Copy AI • R=Review Mode • D=Delete Example
+                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate • Esc=Clear • Enter=Copy AI • R=Review Mode • D=Delete Example • Q=Edit Query
+                <br><strong>🔧 In Modals:</strong> Enter=Save/Confirm • Esc=Cancel
                 <br><strong>✅ Auto-saves to CSV file immediately!</strong>
             </div>
         </div>
@@ -655,6 +656,13 @@
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
             if (data.length === 0) return;
 
+            // Skip if any modal is open
+            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal'];
+            if (modals.some(modalId => {
+                const modal = document.getElementById(modalId);
+                return modal && modal.style.display === 'block';
+            })) return;
+
             switch(e.key.toLowerCase()) {
                 case 'z':
                     e.preventDefault();
@@ -696,6 +704,10 @@
                     e.preventDefault();
                     deleteExample();
                     break;
+                case 'q':
+                    e.preventDefault();
+                    editQuery();
+                    break;
             }
         });
 
@@ -710,6 +722,32 @@
                     skipToRecord();
                 }
             });
+
+            // Add Enter and Escape key support for edit query modal
+            document.getElementById('editQueryInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveQueryEdit();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeModal('editQueryModal');
+                }
+            });
+
+            // Add keyboard support for delete confirmation modal
+            document.addEventListener('keydown', function(e) {
+                // Check if delete confirmation modal is open
+                const deleteModal = document.getElementById('confirmDeleteModal');
+                if (deleteModal && deleteModal.style.display === 'block') {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        confirmDeleteExample();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeModal('confirmDeleteModal');
+                    }
+                }
+            });
         });
 
         // Edit query functionality
@@ -717,6 +755,9 @@
             const currentQuery = document.getElementById('queryText').textContent;
             document.getElementById('editQueryInput').value = currentQuery;
             document.getElementById('editQueryModal').style.display = 'block';
+
+            // Focus on the input field for immediate typing
+            document.getElementById('editQueryInput').focus();
         }
 
         async function saveQueryEdit() {
@@ -863,7 +904,8 @@
         });
 
         console.log('🏷️ ESCI Annotation Tool loaded');
-        console.log('Keyboard shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate, R=Review Mode, D=Delete Example');
+        console.log('Keyboard shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate, Esc=Clear, Enter=Copy AI, R=Review Mode, D=Delete Example, Q=Edit Query');
+        console.log('🔧 In modals: Enter=Save/Confirm, Esc=Cancel');
         console.log('✅ Changes save directly to CSV file!');
         console.log('✏️ New features: Edit queries, delete examples, clear labels, review mode');
     </script>
