@@ -335,6 +335,32 @@ def load_database_data(run_id, labeler_name):
             sys.exit(1)
 
         print(f"Loaded {len(df)} examples from database for run {run_id}")
+
+        # Detect if this is an E-focused run and apply filtering
+        ai_label_counts = df["ai_esci_label"].value_counts()
+        total_ai_labels = ai_label_counts.sum()
+
+        if total_ai_labels > 0:
+            e_percentage = (ai_label_counts.get("E", 0) / total_ai_labels) * 100
+            if e_percentage > 70:  # 70% threshold for E-focused runs
+                print(f"🟢 E-focused run detected ({e_percentage:.1f}% E labels)")
+
+                # Filter out trivial matches where query == consumable_name
+                before_count = len(df)
+                df = df[df["query"].str.lower() != df["consumable_name"].str.lower()]
+                df = df.reset_index(drop=True)  # Reset indices after filtering
+                filtered_count = before_count - len(df)
+
+                if filtered_count > 0:
+                    print(
+                        f"🚫 Filtered out {filtered_count} trivial matches "
+                        f"(query == consumable_name)"
+                    )
+
+                if df.empty:
+                    print("Error: No examples remaining after filtering")
+                    sys.exit(1)
+
         print(f"Labeler: {labeler_name} (ID: {labeler_id})")
 
         # Show label statistics
