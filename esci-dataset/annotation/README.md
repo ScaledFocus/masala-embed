@@ -13,13 +13,15 @@ Flask-based web tools for efficiently annotating ESCI dataset entries with dual-
 - **Database Mode**: MLflow integration with human/AI label separation
 
 ### Core Features
-- Clean display of consumable and query information
+- Clean display of consumable and query information with ingredients
 - One-click ESCI labeling (E/S/C/I buttons)
 - Circular navigation with auto-advance
 - Real-time progress tracking
 - Comprehensive keyboard shortcuts
 - Query text editing (database mode)
 - Example and label deletion capabilities
+- **Review Mode**: Filter view to show only human-annotated records
+- **Statistics tracking**: Monitor annotation progress
 
 ## Usage
 
@@ -48,9 +50,11 @@ Edit the run scripts to set:
 
 ### Regular Tool (Single Record)
 - **Side-by-side layout**: Consumable and query panels
-- **Large displays**: Detailed view with metadata
+- **Large displays**: Detailed view with metadata and ingredients
 - **Auto-advance**: Moves to next record after labeling
 - **Skip navigation**: Jump to specific record numbers
+- **Review Mode**: Toggle to view only annotated records
+- **Smart filtering**: Records stay visible when cleared (can relabel immediately)
 
 ### Bulk Tool (Multi-Record)
 - **Grid layout**: Multiple records visible simultaneously
@@ -74,6 +78,8 @@ Edit the run scripts to set:
 - **V** = Irrelevant (I)
 - **Esc** = Clear human label
 - **Enter** = Copy AI label to human label (database mode)
+- **R** = Toggle Review Mode (show only annotated records)
+- **D** = Delete Example (with confirmation)
 
 ### Regular Tool
 - **← →** = Navigate between records (circular)
@@ -87,10 +93,33 @@ Edit the run scripts to set:
 
 - **Dual labels**: Separate display of AI and human labels
 - **Query editing**: Click query text to edit with global deduplication
-- **Example deletion**: Remove entire examples and orphaned queries
+- **Example deletion**: Remove entire examples and orphaned queries (D key or button)
 - **Label deletion**: Clear only your labels (preserves AI labels)
-- **Copy AI labels**: Quickly adopt AI suggestions
+- **Copy AI labels**: Quickly adopt AI suggestions (Enter key or button)
 - **MLflow integration**: Load examples from specific experiment runs
+- **Review Mode**: Filter to show only records with human annotations (R key or button)
+- **Smart record targeting**: Uses example IDs for accurate database operations
+- **Progress statistics**: View annotation progress and completion rates
+
+## Review Mode
+
+The Review Mode is a powerful feature for quality control and validation of annotations:
+
+### How to Use
+- **Activate**: Press **R** key or click **"📋 Review Mode"** button
+- **Exit**: Press **R** again or click **"🚪 Exit Review"** button
+
+### Features
+- **Filtered view**: Shows only records that have human annotations
+- **Progress tracking**: Displays "X annotated / Y total" in file info
+- **Smart workflow**: Clear labels without records disappearing (can relabel immediately)
+- **Statistics**: Click **"📊 Stats"** button to see annotation progress
+
+### Use Cases
+- **Quality review**: Check your previous annotations for accuracy
+- **Progress tracking**: See how many records you've completed
+- **Refinement**: Update or correct existing labels
+- **Validation**: Ensure consistency across annotations
 
 ## Data Sources
 
