@@ -18,10 +18,12 @@ Flask-based web tools for efficiently annotating ESCI dataset entries with dual-
 - Circular navigation with auto-advance
 - Real-time progress tracking
 - Comprehensive keyboard shortcuts
-- Query text editing (database mode)
-- Example and label deletion capabilities
+- Query text editing (both CSV and database modes)
+- Example and label deletion capabilities (both CSV and database modes)
+- **Consumable deletion**: Remove entire consumables with all associated data (database mode only)
 - **Review Mode**: Filter view to show only human-annotated records
 - **Statistics tracking**: Monitor annotation progress
+- **Smart filtering**: Auto-filters trivial exact matches in E-focused runs (>70% E labels)
 
 ## Usage
 
@@ -80,6 +82,8 @@ Edit the run scripts to set:
 - **Enter** = Copy AI label to human label (database mode)
 - **R** = Toggle Review Mode (show only annotated records)
 - **D** = Delete Example (with confirmation)
+- **F** = Delete Consumable (database mode, with confirmation)
+- **Q** = Edit Query
 
 ### Regular Tool
 - **← →** = Navigate between records (circular)
@@ -94,12 +98,14 @@ Edit the run scripts to set:
 - **Dual labels**: Separate display of AI and human labels
 - **Query editing**: Click query text to edit with global deduplication
 - **Example deletion**: Remove entire examples and orphaned queries (D key or button)
+- **Consumable deletion**: Remove entire consumables with all associated examples, labels, and orphaned queries (F key or button)
 - **Label deletion**: Clear only your labels (preserves AI labels)
 - **Copy AI labels**: Quickly adopt AI suggestions (Enter key or button)
 - **MLflow integration**: Load examples from specific experiment runs
 - **Review Mode**: Filter to show only records with human annotations (R key or button)
 - **Smart record targeting**: Uses example IDs for accurate database operations
 - **Progress statistics**: View annotation progress and completion rates
+- **E-run optimization**: Automatically filters trivial matches (query == consumable_name) in E-focused runs
 
 ## Review Mode
 
@@ -125,7 +131,7 @@ The Review Mode is a powerful feature for quality control and validation of anno
 
 ### CSV Mode
 Expects CSV with columns:
-- `consumable_id`, `consumable_name`
+- `consumable_id`, `consumable_name`, `consumable_ingredients`
 - `query`, `query_filters` (JSON)
 - `esci_label`, `generated_at`
 

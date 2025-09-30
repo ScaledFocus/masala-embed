@@ -261,6 +261,37 @@ def copy_ai_label():
     return jsonify({"success": True, "message": f"Copied AI label: {ai_label}"})
 
 
+@app.route("/api/delete-consumable", methods=["POST"])
+def delete_consumable():
+    """Delete a consumable and all its associated data (examples, labels, orphaned queries)"""
+    global df, use_database
+
+    data = request.json
+    consumable_id = data.get("consumable_id")
+
+    if df is None:
+        return jsonify({"error": "No data loaded"}), 400
+
+    # Only works in database mode
+    if not use_database:
+        return jsonify({"error": "Delete consumable only works in database mode"}), 400
+
+    if not consumable_id:
+        return jsonify({"error": "consumable_id required"}), 400
+
+    success, stats = delete_consumable_from_database(consumable_id)
+    if not success:
+        return jsonify({"error": "Failed to delete consumable from database"}), 500
+
+    message = (
+        f"Deleted consumable '{stats['consumable_name']}' with "
+        f"{stats['labels_deleted']} labels, {stats['examples_deleted']} examples, "
+        f"and {stats['queries_deleted']} orphaned queries"
+    )
+
+    return jsonify({"success": True, "message": message, "stats": stats})
+
+
 def load_csv(file_path):
     """Load CSV file into global DataFrame"""
     global df, csv_file_path
@@ -701,6 +732,104 @@ def delete_label_from_database_by_id(example_id):
     except Exception as e:
         print(f"Database delete error: {e}")
         return False
+
+
+def delete_consumable_from_database(consumable_id):
+    """Delete a consumable and all its associated data
+
+    Deletion order:
+    1. Delete all labels for examples linked to this consumable
+    2. Get list of query_ids from examples linked to this consumable
+    3. Delete all examples linked to this consumable
+    4. For each query, check if it has remaining examples - if not, delete it
+    5. Delete the consumable itself
+
+    Returns: (success: bool, stats: dict)
+    """
+    global df
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                # Get consumable name for the message
+                cursor.execute(
+                    "SELECT consumable_name FROM consumable WHERE id = %s",
+                    (consumable_id,),
+                )
+                consumable_result = cursor.fetchone()
+                if not consumable_result:
+                    return False, {"error": "Consumable not found"}
+                consumable_name = consumable_result[0]
+
+                # Get all example IDs for this consumable
+                cursor.execute(
+                    "SELECT id, query_id FROM example WHERE consumable_id = %s",
+                    (consumable_id,),
+                )
+                examples = cursor.fetchall()
+                example_ids = [ex[0] for ex in examples]
+                query_ids = [ex[1] for ex in examples]
+
+                # Delete all labels for these examples
+                if example_ids:
+                    cursor.execute(
+                        """
+                        DELETE FROM label
+                        WHERE example_id = ANY(%s)
+                    """,
+                        (example_ids,),
+                    )
+                    labels_deleted = cursor.rowcount
+                else:
+                    labels_deleted = 0
+
+                # Delete all examples for this consumable
+                cursor.execute(
+                    "DELETE FROM example WHERE consumable_id = %s", (consumable_id,)
+                )
+                examples_deleted = cursor.rowcount
+
+                # Check each query to see if it's now orphaned
+                queries_deleted = 0
+                for query_id in set(query_ids):  # Use set to avoid duplicates
+                    cursor.execute(
+                        "SELECT COUNT(*) FROM example WHERE query_id = %s", (query_id,)
+                    )
+                    remaining_examples = cursor.fetchone()[0]
+
+                    if remaining_examples == 0:
+                        cursor.execute("DELETE FROM query WHERE id = %s", (query_id,))
+                        queries_deleted += 1
+
+                # Delete the consumable itself
+                cursor.execute("DELETE FROM consumable WHERE id = %s", (consumable_id,))
+
+                conn.commit()
+
+        # Update DataFrame - remove all rows with this consumable_id
+        mask = df["consumable_id"] == consumable_id
+        df.drop(df.index[mask], inplace=True)
+        df.reset_index(drop=True, inplace=True)
+
+        stats = {
+            "consumable_name": consumable_name,
+            "consumable_id": consumable_id,
+            "labels_deleted": labels_deleted,
+            "examples_deleted": examples_deleted,
+            "queries_deleted": queries_deleted,
+        }
+
+        print(
+            f"Deleted consumable {consumable_id} ({consumable_name}): "
+            f"{labels_deleted} labels, {examples_deleted} examples, "
+            f"{queries_deleted} orphaned queries"
+        )
+
+        return True, stats
+
+    except Exception as e:
+        print(f"Database delete consumable error: {e}")
+        return False, {"error": str(e)}
 
 
 def parse_arguments():
