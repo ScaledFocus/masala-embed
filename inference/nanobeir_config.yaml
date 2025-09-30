@@ -1,8 +1,9 @@
 output_dir: ./outputs
 leaderboard_json: ./outputs/nanobeir_leaderboard.json
 
-datasets: ["scifact"]
-
+#datasets: ["scifact"]
+datasets: ["zeta-alpha-ai/NanoDBPedia"]
+#datasets: ["scifact-nano"]
 cost_per_1k:
   #qwen_embedding: 0.10  # <- set this to whatever your team uses
   vllm_api_encoder: 0.05

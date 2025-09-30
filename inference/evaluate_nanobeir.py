@@ -16,13 +16,15 @@ import statistics
 import time
 from typing import Any
 
+import pandas as pd
+
 # --- Third-Party Imports ---
 import torch
 import yaml
-from beir import util
 from beir.datasets.data_loader import GenericDataLoader
 from beir.retrieval.evaluation import EvaluateRetrieval
 from beir.retrieval.search.dense import DenseRetrievalExactSearch as DRES
+from huggingface_hub import snapshot_download
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 from transformers import AutoModel, AutoTokenizer
@@ -81,9 +83,87 @@ _BEIR_URLS = {
 
 
 def load_dataset(name: str, base_dir: str = "./datasets"):
-    url_or_id = _BEIR_URLS.get(name, name)
-    data_path = util.download_and_unzip(url_or_id, base_dir)
-    corpus, queries, qrels = GenericDataLoader(data_folder=data_path).load(split="test")
+    print(f"[dataset] Attempting to load dataset: '{name}'")
+
+    if "/" not in name:
+        raise ValueError(
+            f"'{name}' must be a Hugging Face dataset ID like 'user/repo'."
+        )
+
+    # --- Step 1: Download the raw files from the Hub ---
+    print(f"-> Downloading '{name}' from the Hub...")
+    try:
+        local_path = snapshot_download(repo_id=name, repo_type="dataset")
+        print(f"--> Dataset downloaded to cache: {local_path}")
+    except Exception as e:
+        error_message = (
+            f"\n[ERROR] Failed to download repository '{name}'. "
+            "Please double-check the name in your YAML config."
+        )
+        print(error_message)
+        raise e
+
+    # --- Step 2: Convert and Sanitize files from Parquet to BEIR format ---
+    print("--> Downloaded Parquet files. Converting & sanitizing to BEIR format...")
+
+    # Convert Corpus
+    corpus_parquet_path = os.path.join(
+        local_path, "corpus", "train-00000-of-00001.parquet"
+    )
+    corpus_jsonl_path = os.path.join(local_path, "corpus.jsonl")
+    if not os.path.exists(corpus_jsonl_path):
+        corpus_df = pd.read_parquet(corpus_parquet_path)
+
+        # --- THE BULLETPROOF FIX ---
+        print("--> Applying final sanitization to corpus...")
+        # 1. Ensure a 'title' column exists. If not, create it with empty strings.
+        if "title" not in corpus_df.columns:
+            print("--> 'title' column not found. Creating empty 'title' column.")
+            corpus_df["title"] = ""
+
+        # 2. Sanitize both 'title' and 'text' columns to replace any None values.
+        corpus_df["title"] = corpus_df["title"].fillna("")
+        corpus_df["text"] = corpus_df["text"].fillna("")
+
+        corpus_df.to_json(corpus_jsonl_path, orient="records", lines=True)
+        print(f"--> Converted and saved {corpus_jsonl_path}")
+
+    # Convert Queries (Sanitization for safety)
+    queries_parquet_path = os.path.join(
+        local_path, "queries", "train-00000-of-00001.parquet"
+    )
+    queries_jsonl_path = os.path.join(local_path, "queries.jsonl")
+    if not os.path.exists(queries_jsonl_path):
+        queries_df = pd.read_parquet(queries_parquet_path)
+        queries_df["text"] = queries_df["text"].fillna("")
+        queries_df.to_json(queries_jsonl_path, orient="records", lines=True)
+        print(f"--> Converted and saved {queries_jsonl_path}")
+
+    # Convert Qrels
+    qrels_parquet_path = os.path.join(
+        local_path, "qrels", "train-00000-of-00001.parquet"
+    )
+    qrels_dir = os.path.join(local_path, "qrels")
+    qrels_tsv_path = os.path.join(qrels_dir, "test.tsv")
+    if not os.path.exists(qrels_tsv_path):
+        os.makedirs(qrels_dir, exist_ok=True)
+        qrels_df = pd.read_parquet(qrels_parquet_path)
+        if "score" not in qrels_df.columns:
+            qrels_df["score"] = 1
+        qrels_df = qrels_df.rename(
+            columns={
+                "query_id": "query-id",
+                "corpus_id": "corpus-id",
+            }
+        )
+        qrels_df.to_csv(qrels_tsv_path, sep="\t", index=False)
+        print(f"--> Converted and saved {qrels_tsv_path}")
+
+    # --- Step 3: Load the newly converted, BEIR-compatible files ---
+    print("--> Conversion complete. Loading formatted data...")
+    corpus, queries, qrels = GenericDataLoader(data_folder=local_path).load(
+        split="test"
+    )
     return corpus, queries, qrels
 
 
