@@ -278,11 +278,14 @@
                 <button class="btn btn-delete" onclick="deleteLabel()">🗑️ Clear Label</button>
                 <button class="btn btn-delete" onclick="deleteExample()">🗑️ Delete Example</button>
             </div>
+            <div class="controls-row">
+                <button class="btn btn-delete" onclick="deleteConsumable()">🗑️ Delete Consumable (F)</button>
+            </div>
 
             <!-- Keyboard Shortcuts -->
             <div class="shortcuts">
                 <strong>⌨️ Keyboard Shortcuts:</strong>
-                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate • Esc=Clear • Enter=Copy AI • R=Review Mode • D=Delete Example • Q=Edit Query
+                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate • Esc=Clear • Enter=Copy AI • R=Review Mode • D=Delete Example • F=Delete Consumable • Q=Edit Query
                 <br><strong>🔧 In Modals:</strong> Enter=Save/Confirm • Esc=Cancel
                 <br><strong>✅ Auto-saves to CSV file immediately!</strong>
             </div>
@@ -331,6 +334,27 @@
             <div class="modal-buttons">
                 <button class="btn btn-delete" onclick="confirmDeleteLabel()">🗑️ Clear</button>
                 <button class="btn btn-nav" onclick="closeModal('confirmDeleteLabelModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Consumable Modal -->
+    <div id="confirmDeleteConsumableModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('confirmDeleteConsumableModal')">&times;</span>
+            <h3>⚠️ Delete Consumable</h3>
+            <p><strong>Are you sure you want to delete this consumable?</strong></p>
+            <p>This will permanently delete:</p>
+            <ul>
+                <li><strong>The consumable itself</strong> (ID: <span id="deleteConsumableId"></span>)</li>
+                <li><strong>All examples</strong> linked to this consumable</li>
+                <li><strong>All labels</strong> for those examples</li>
+                <li><strong>Orphaned queries</strong> (queries with no other examples)</li>
+            </ul>
+            <p style="color: #dc3545; font-weight: bold;">⚠️ This cannot be undone!</p>
+            <div class="modal-buttons">
+                <button class="btn btn-delete" onclick="confirmDeleteConsumable()">🗑️ Delete Consumable</button>
+                <button class="btn btn-nav" onclick="closeModal('confirmDeleteConsumableModal')">❌ Cancel</button>
             </div>
         </div>
     </div>
@@ -657,7 +681,7 @@
             if (data.length === 0) return;
 
             // Skip if any modal is open
-            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal'];
+            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal', 'confirmDeleteConsumableModal'];
             if (modals.some(modalId => {
                 const modal = document.getElementById(modalId);
                 return modal && modal.style.display === 'block';
@@ -708,6 +732,10 @@
                     e.preventDefault();
                     editQuery();
                     break;
+                case 'f':
+                    e.preventDefault();
+                    deleteConsumable();
+                    break;
             }
         });
 
@@ -734,9 +762,9 @@
                 }
             });
 
-            // Add keyboard support for delete confirmation modal
+            // Add keyboard support for delete confirmation modals
             document.addEventListener('keydown', function(e) {
-                // Check if delete confirmation modal is open
+                // Check if delete example confirmation modal is open
                 const deleteModal = document.getElementById('confirmDeleteModal');
                 if (deleteModal && deleteModal.style.display === 'block') {
                     if (e.key === 'Enter') {
@@ -745,6 +773,30 @@
                     } else if (e.key === 'Escape') {
                         e.preventDefault();
                         closeModal('confirmDeleteModal');
+                    }
+                }
+
+                // Check if delete label confirmation modal is open
+                const deleteLabelModal = document.getElementById('confirmDeleteLabelModal');
+                if (deleteLabelModal && deleteLabelModal.style.display === 'block') {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        confirmDeleteLabel();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeModal('confirmDeleteLabelModal');
+                    }
+                }
+
+                // Check if delete consumable confirmation modal is open
+                const deleteConsumableModal = document.getElementById('confirmDeleteConsumableModal');
+                if (deleteConsumableModal && deleteConsumableModal.style.display === 'block') {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        confirmDeleteConsumable();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeModal('confirmDeleteConsumableModal');
                     }
                 }
             });
@@ -887,6 +939,65 @@
             }
         }
 
+        // Delete consumable functionality
+        function deleteConsumable() {
+            const item = data[currentIndex];
+
+            // Only works in database mode
+            if (!isDatabaseMode(item)) {
+                showStatus('❌ Delete consumable only works in database mode', 'error');
+                return;
+            }
+
+            // Set the consumable ID in the modal
+            document.getElementById('deleteConsumableId').textContent = item.consumable_id || 'N/A';
+            document.getElementById('confirmDeleteConsumableModal').style.display = 'block';
+        }
+
+        async function confirmDeleteConsumable() {
+            try {
+                const response = await fetch('/api/delete-consumable', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        consumable_id: data[currentIndex].consumable_id
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const consumableId = data[currentIndex].consumable_id;
+
+                    // Remove all examples with this consumable_id from local data
+                    data = data.filter(item => item.consumable_id !== consumableId);
+
+                    closeModal('confirmDeleteConsumableModal');
+
+                    if (data.length === 0) {
+                        showStatus('📊 All examples deleted!');
+                        document.getElementById('mainContent').style.display = 'none';
+                        document.getElementById('fileInfo').textContent = 'No data remaining';
+                    } else {
+                        // Adjust current index if needed
+                        if (currentIndex >= data.length) {
+                            currentIndex = data.length - 1;
+                        }
+                        displayItem(currentIndex);
+                        showStatus(`✅ ${result.message}`);
+                        // Update skip input max value
+                        document.getElementById('skipToRecord').max = data.length;
+                    }
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
         // Modal management
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
@@ -894,7 +1005,7 @@
 
         // Close modal when clicking outside
         window.addEventListener('click', function(event) {
-            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal'];
+            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal', 'confirmDeleteConsumableModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {
@@ -904,10 +1015,10 @@
         });
 
         console.log('🏷️ ESCI Annotation Tool loaded');
-        console.log('Keyboard shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate, Esc=Clear, Enter=Copy AI, R=Review Mode, D=Delete Example, Q=Edit Query');
+        console.log('Keyboard shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate, Esc=Clear, Enter=Copy AI, R=Review Mode, D=Delete Example, F=Delete Consumable, Q=Edit Query');
         console.log('🔧 In modals: Enter=Save/Confirm, Esc=Cancel');
         console.log('✅ Changes save directly to CSV file!');
-        console.log('✏️ New features: Edit queries, delete examples, clear labels, review mode');
+        console.log('✏️ New features: Edit queries, delete examples, delete consumables, clear labels, review mode');
     </script>
 </body>
 </html>
