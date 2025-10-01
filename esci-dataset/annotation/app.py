@@ -263,7 +263,7 @@ def copy_ai_label():
 
 @app.route("/api/delete-consumable", methods=["POST"])
 def delete_consumable():
-    """Delete a consumable and all its associated data (examples, labels, orphaned queries)"""
+    """Delete a consumable and all associated data (examples, labels, queries)"""
     global df, use_database
 
     data = request.json
