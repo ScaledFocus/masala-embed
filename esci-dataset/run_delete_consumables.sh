@@ -5,11 +5,11 @@
 # Edit the parameters below, then run: ./run_delete_consumables.sh
 
 # Choose mode: "IDS", "PATTERN", or "PATTERN_LIST"
-MODE="PATTERN"
+MODE="IDS"
 
 # IDS mode parameters (used when MODE="IDS")
 # Space-separated list of consumable IDs
-CONSUMABLE_IDS="C001 C002 C003"
+CONSUMABLE_IDS=$(cat consumable_ids.txt)
 
 # PATTERN mode parameters (used when MODE="PATTERN")
 # Pattern to match in consumable names (case-insensitive)
@@ -23,7 +23,7 @@ PATTERN_LIST="mixed,assorted,platter,combo"
 
 # Action: "DRY_RUN" or "CONFIRM"
 # Use DRY_RUN to preview changes without making them
-ACTION="CONFIRM"
+ACTION="DRY_RUN"
 
 # Display info
 echo "🗑️  Delete Consumables Tool"
