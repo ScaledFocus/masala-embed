@@ -387,7 +387,7 @@ def evaluate_model(beir_model, corpus, queries, qrels, cost_per_1k: float):
         "NDCG@10": float(n10),
         "MedR": float(medr),
         "Latency_ms_p95": float(lat),
-        "Cost_per_1k_queries": float(cost_per_1k),
+        # "Cost_per_1k_queries": float(cost_per_1k),
     }
 
 
