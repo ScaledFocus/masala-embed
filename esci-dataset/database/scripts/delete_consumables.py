@@ -30,7 +30,6 @@ import argparse
 import logging
 import os
 import sys
-from typing import List, Tuple
 
 from dotenv import load_dotenv
 
@@ -55,7 +54,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def find_consumables_by_ids(consumable_ids: List[str]) -> List[Tuple[str, str]]:
+def find_consumables_by_ids(consumable_ids: list[str]) -> list[tuple[str, str]]:
     """Find consumables by their IDs.
 
     Args:
@@ -79,7 +78,9 @@ def find_consumables_by_ids(consumable_ids: List[str]) -> List[Tuple[str, str]]:
             return [(row[0], row[1]) for row in results]
 
 
-def find_consumables_by_pattern(pattern: str, exact: bool = False) -> List[Tuple[str, str]]:
+def find_consumables_by_pattern(
+    pattern: str, exact: bool = False
+) -> list[tuple[str, str]]:
     """Find consumables by name pattern (case-insensitive).
 
     Args:
@@ -117,7 +118,7 @@ def find_consumables_by_pattern(pattern: str, exact: bool = False) -> List[Tuple
             return [(row[0], row[1]) for row in results]
 
 
-def find_consumables_by_pattern_list(patterns: List[str]) -> List[Tuple[str, str]]:
+def find_consumables_by_pattern_list(patterns: list[str]) -> list[tuple[str, str]]:
     """Find consumables matching any of the patterns in the list.
 
     Args:
@@ -289,11 +290,12 @@ def main():
         "--ids", nargs="+", help="Consumable IDs to delete (space-separated)"
     )
     input_group.add_argument(
-        "--pattern", help="Name pattern to match (case-insensitive, uses LIKE by default)"
+        "--pattern",
+        help="Name pattern to match (case-insensitive, uses LIKE by default)",
     )
     input_group.add_argument(
         "--pattern-list",
-        help="Comma-separated list of patterns to match (e.g., 'mixed,assorted,platter')",
+        help="Comma-separated patterns to match (e.g., 'mixed,assorted,platter')",
     )
 
     # Matching options
@@ -317,9 +319,7 @@ def main():
 
     # Validate action flags
     if not args.dry_run and not args.confirm:
-        logger.error(
-            "Error: Either --dry-run or --confirm flag is required to proceed"
-        )
+        logger.error("Error: Either --dry-run or --confirm flag is required to proceed")
         logger.error("Use --dry-run to preview changes without making them")
         logger.error("Use --confirm to actually delete the data")
         sys.exit(1)
@@ -340,7 +340,10 @@ def main():
         consumables = find_consumables_by_ids(args.ids)
     elif args.pattern:
         match_type = "exact" if args.exact else "substring"
-        logger.info(f"Finding consumables matching pattern: '{args.pattern}' ({match_type} match)")
+        logger.info(
+            f"Finding consumables matching pattern: '{args.pattern}' "
+            f"({match_type} match)"
+        )
         consumables = find_consumables_by_pattern(args.pattern, exact=args.exact)
     elif args.pattern_list:
         patterns = [p.strip() for p in args.pattern_list.split(",")]
@@ -374,7 +377,8 @@ def main():
     logger.info(f"  Examples: {total_stats['examples']}")
     logger.info(f"  Labels: {total_stats['labels']}")
     logger.info(
-        f"  Orphaned queries: {total_stats['orphaned_queries']}/{total_stats['queries']}"
+        f"  Orphaned queries: {total_stats['orphaned_queries']}/"
+        f"{total_stats['queries']}"
     )
 
     if args.dry_run:
@@ -383,7 +387,9 @@ def main():
 
     # Confirm deletion
     logger.warning("\n⚠️  DELETION WILL BE PERMANENT AND CANNOT BE UNDONE!")
-    confirmation = input(f"Type 'DELETE' to confirm deletion of {len(consumables)} consumable(s): ")
+    confirmation = input(
+        f"Type 'DELETE' to confirm deletion of {len(consumables)} consumable(s): "
+    )
 
     if confirmation != "DELETE":
         logger.info("Deletion cancelled.")
@@ -402,9 +408,7 @@ def main():
             logger.error(f"Failed to delete {consumable_id} ({consumable_name}): {e}")
             error_count += 1
 
-    logger.info(
-        f"\nDeletion complete: {success_count} succeeded, {error_count} failed"
-    )
+    logger.info(f"\nDeletion complete: {success_count} succeeded, {error_count} failed")
 
     if error_count > 0:
         sys.exit(1)
