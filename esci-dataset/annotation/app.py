@@ -261,6 +261,31 @@ def copy_ai_label():
     return jsonify({"success": True, "message": f"Copied AI label: {ai_label}"})
 
 
+@app.route("/api/update-label-reason", methods=["POST"])
+def update_label_reason():
+    """Update label_reason for the current user's label"""
+    global use_database
+
+    data = request.json
+    example_id = data.get("example_id")
+    label_reason = data.get("label_reason", "").strip()
+
+    if df is None:
+        return jsonify({"error": "No data loaded"}), 400
+
+    # Only works in database mode
+    if not use_database:
+        return jsonify({"error": "Label reason only works in database mode"}), 400
+
+    if not example_id:
+        return jsonify({"error": "example_id required for database mode"}), 400
+
+    if not update_label_reason_in_database(example_id, label_reason):
+        return jsonify({"error": "Failed to update label reason in database"}), 500
+
+    return jsonify({"success": True, "message": "Label reason updated successfully"})
+
+
 @app.route("/api/delete-consumable", methods=["POST"])
 def delete_consumable():
     """Delete a consumable and all associated data (examples, labels, queries)"""
@@ -333,7 +358,7 @@ def load_database_data(run_id, labeler_name):
         labeler_id = get_labeler_id_from_name(labeler_name)
         mlflow_run_id = run_id
 
-        # Query to get examples with both AI and human labels
+        # Query to get examples with both AI and human labels (including label_reason)
         query = """
         SELECT
             e.id as example_id,
@@ -345,7 +370,9 @@ def load_database_data(run_id, labeler_name):
             c.consumable_name,
             c.consumable_ingredients,
             ai_label.esci_label as ai_esci_label,
-            human_label.esci_label as human_esci_label
+            ai_label.label_reason as ai_label_reason,
+            human_label.esci_label as human_esci_label,
+            human_label.label_reason as human_label_reason
         FROM example e
         JOIN query q ON e.query_id = q.id
         JOIN consumable c ON e.consumable_id = c.id
@@ -696,8 +723,9 @@ def delete_label_from_database(example_index):
 
                 conn.commit()
 
-        # Update DataFrame - clear human label
+        # Update DataFrame - clear human label and label_reason
         df.at[example_index, "human_esci_label"] = None
+        df.at[example_index, "human_label_reason"] = None
         # Recalculate combined label (fall back to AI label)
         ai_label = df.iloc[example_index]["ai_esci_label"]
         df.at[example_index, "esci_label"] = ai_label or ""
@@ -731,6 +759,32 @@ def delete_label_from_database_by_id(example_id):
 
     except Exception as e:
         print(f"Database delete error: {e}")
+        return False
+
+
+def update_label_reason_in_database(example_id, label_reason):
+    """Update label_reason for the current labeler's label"""
+    global labeler_id
+
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                # Update label_reason for this labeler's label
+                cursor.execute(
+                    """
+                    UPDATE label
+                    SET label_reason = %s
+                    WHERE example_id = %s AND labeler_id = %s
+                """,
+                    (label_reason if label_reason else None, example_id, labeler_id),
+                )
+
+                conn.commit()
+
+        return True
+
+    except Exception as e:
+        print(f"Database update label_reason error: {e}")
         return False
 
 
