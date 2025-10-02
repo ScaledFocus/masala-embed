@@ -5,7 +5,7 @@
 # Edit the defaults below, then run: ./run_initial_generation.sh
 
 # Default parameters (edit these as needed)
-ESCI_LABEL="E"
+ESCI_LABEL="S"
 MODEL="gpt-5"
 BATCH_SIZE=50
 QUERIES_PER_ITEM=1
@@ -17,7 +17,7 @@ PARALLEL=10
 DIETARY_FLAG=""
 OUTPUT_PATH=""
 TEMPLATE_PATH="prompts/query_generation/v3.txt"
-QUERY_EXAMPLES="prompts/query_generation/Examples_E.txt"
+QUERY_EXAMPLES="prompts/query_generation/Examples_S.txt"
 EXPERIMENT_NAME="Initial_Generation"
 RUN_NAME=""
 
