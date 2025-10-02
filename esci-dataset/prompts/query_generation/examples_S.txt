@@ -32,7 +32,7 @@ Feel free to swap the protein, sauce, and carb components in the dish. Eg: Chick
 - "black forest cake", "chocolate lava cake", "chocolate chip cookie", "donut", "cupcake", "chocolate mousse"
 
 **Anchor: Butter Chicken**
-- "chicken kadai", "cream chicken", "tikka masala", "chicken korma", "lamb curry", "chicken gravy"
+- "chicken kadai", "cream chicken", "tikka masala", "chicken korma", "lamb curry", "rogan josh", "laal maas", "chicken chettinad"
 
 **Anchor: Veggie Burger**
 - "veg club sandwich", "paneer burger", "falafel wrap", "bean burger", "aloo tikki burger", "mushroom burger"
