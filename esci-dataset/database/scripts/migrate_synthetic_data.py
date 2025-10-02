@@ -368,15 +368,27 @@ def process_enhanced_json_data(
                         reasoning = row["reasoning"]
 
                     # Insert example (query-consumable pair)
+                    # Use ON CONFLICT to skip duplicates gracefully
                     cursor.execute(
                         """
                         INSERT INTO example (query_id, consumable_id, example_gen_hash)
                         VALUES (%s, %s, %s)
+                        ON CONFLICT (query_id, consumable_id) DO NOTHING
                         RETURNING id
                         """,
                         (query_id, candidate_id, data_gen_hash),
                     )
-                    example_id = cursor.fetchone()[0]
+                    result = cursor.fetchone()
+
+                    # Skip label insertion if example already existed
+                    if result is None:
+                        logger.debug(
+                            f"Skipping duplicate example: query_id={query_id}, "
+                            f"consumable_id={candidate_id}"
+                        )
+                        continue
+
+                    example_id = result[0]
                     examples_inserted += 1
 
                     # Insert label with reasoning
