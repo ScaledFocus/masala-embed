@@ -401,7 +401,7 @@ def evaluate_model(beir_model, corpus, queries, qrels, cost_per_1k: float):
     lat = time_calls(
         lambda batch: beir_model.encode_queries(batch, batch_size=1), probe, warmup=3
     )
-    #lat_p95 = float(lat)
+    # lat_p95 = float(lat)
     # est_qps = 1000.0 / lat_p95 if lat_p95 > 0 else 0.0
     all_query_texts = list(queries.values())
     true_qps = measure_throughput(beir_model, all_query_texts)
