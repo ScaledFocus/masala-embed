@@ -1,45 +1,45 @@
 #!/bin/bash
 
-# Delete Consumables Script Runner
+# Delete Queries Script Runner
 
-# Edit the parameters below, then run: ./run_delete_consumables.sh
+# Edit the parameters below, then run: ./run_delete_queries.sh
 
 # Choose mode: "IDS", "PATTERN", or "PATTERN_LIST"
-MODE="IDS"
+MODE="PATTERN"
 
 # IDS mode parameters (used when MODE="IDS")
-# Space-separated list of consumable IDs
-CONSUMABLE_IDS=$(cat consumable_ids.txt)
+# Space-separated list of query IDs
+QUERY_IDS="1001 1002 1003"
 
 # PATTERN mode parameters (used when MODE="PATTERN")
-# Pattern to match in consumable names (case-insensitive)
-PATTERN="mixed platter"
+# Pattern to match in query content (case-insensitive)
+PATTERN="pizza"
 # Set to "true" for exact match, "false" for substring match
-EXACT_MATCH="true"
+EXACT_MATCH="false"
 
 # PATTERN_LIST mode parameters (used when MODE="PATTERN_LIST")
 # Comma-separated list of patterns to match
-PATTERN_LIST="mixed,assorted,platter,combo"
+PATTERN_LIST="food,meal,dish,something"
 
 # Action: "DRY_RUN" or "CONFIRM"
 # Use DRY_RUN to preview changes without making them
-ACTION="CONFIRM"
+ACTION="DRY_RUN"
 
 # Display info
-echo "🗑️  Delete Consumables Tool"
+echo "🗑️  Delete Queries Tool"
 echo ""
 
 if [ "$MODE" = "IDS" ]; then
     echo "🔢 Mode: Delete by IDs"
-    echo "📋 IDs: $CONSUMABLE_IDS"
+    echo "📋 IDs: $QUERY_IDS"
     echo ""
 
     if [ "$ACTION" = "DRY_RUN" ]; then
         echo "👁️  DRY RUN - Preview only (no changes will be made)"
-        PYTHONPATH=. uv run python database/scripts/delete_consumables.py --ids $CONSUMABLE_IDS --dry-run
+        PYTHONPATH=. uv run python database/scripts/delete_queries.py --ids $QUERY_IDS --dry-run
     elif [ "$ACTION" = "CONFIRM" ]; then
         echo "⚠️  CONFIRM - This will DELETE data!"
-        PYTHONPATH=. uv run python database/scripts/delete_consumables.py --ids $CONSUMABLE_IDS --confirm
+        PYTHONPATH=. uv run python database/scripts/delete_queries.py --ids $QUERY_IDS --confirm
     else
         echo "❌ Error: ACTION must be 'DRY_RUN' or 'CONFIRM'"
         exit 1
@@ -60,10 +60,10 @@ elif [ "$MODE" = "PATTERN" ]; then
 
     if [ "$ACTION" = "DRY_RUN" ]; then
         echo "👁️  DRY RUN - Preview only (no changes will be made)"
-        PYTHONPATH=. uv run python database/scripts/delete_consumables.py --pattern "$PATTERN" $EXACT_FLAG --dry-run
+        PYTHONPATH=. uv run python database/scripts/delete_queries.py --pattern "$PATTERN" $EXACT_FLAG --dry-run
     elif [ "$ACTION" = "CONFIRM" ]; then
         echo "⚠️  CONFIRM - This will DELETE data!"
-        PYTHONPATH=. uv run python database/scripts/delete_consumables.py --pattern "$PATTERN" $EXACT_FLAG --confirm
+        PYTHONPATH=. uv run python database/scripts/delete_queries.py --pattern "$PATTERN" $EXACT_FLAG --confirm
     else
         echo "❌ Error: ACTION must be 'DRY_RUN' or 'CONFIRM'"
         exit 1
@@ -77,10 +77,10 @@ elif [ "$MODE" = "PATTERN_LIST" ]; then
 
     if [ "$ACTION" = "DRY_RUN" ]; then
         echo "👁️  DRY RUN - Preview only (no changes will be made)"
-        PYTHONPATH=. uv run python database/scripts/delete_consumables.py --pattern-list "$PATTERN_LIST" --dry-run
+        PYTHONPATH=. uv run python database/scripts/delete_queries.py --pattern-list "$PATTERN_LIST" --dry-run
     elif [ "$ACTION" = "CONFIRM" ]; then
         echo "⚠️  CONFIRM - This will DELETE data!"
-        PYTHONPATH=. uv run python database/scripts/delete_consumables.py --pattern-list "$PATTERN_LIST" --confirm
+        PYTHONPATH=. uv run python database/scripts/delete_queries.py --pattern-list "$PATTERN_LIST" --confirm
     else
         echo "❌ Error: ACTION must be 'DRY_RUN' or 'CONFIRM'"
         exit 1
