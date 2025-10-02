@@ -245,6 +245,17 @@
                     <div class="current-label" id="aiLabel">
                         <strong>AI Label:</strong> <span id="aiLabelText"></span>
                     </div>
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>📝 Human Label Reason:</strong>
+                            <button class="btn btn-edit" onclick="editLabelReason()" style="font-size: 12px; padding: 5px 10px;">✏️ Edit (L)</button>
+                        </div>
+                        <div id="humanLabelReasonText" style="margin-top: 10px; font-style: italic; color: #6c757d;">Not set</div>
+                    </div>
+                    <div style="background-color: #fff8f5; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 3px solid #ff6b35;">
+                        <strong>🤖 AI Label Reason:</strong>
+                        <div id="aiLabelReasonText" style="margin-top: 10px; font-style: italic; color: #6c757d;">Not set</div>
+                    </div>
                 </div>
                 <!-- CSV mode: single combined label -->
                 <div id="csvLabel" style="display: none;">
@@ -285,9 +296,9 @@
             <!-- Keyboard Shortcuts -->
             <div class="shortcuts">
                 <strong>⌨️ Keyboard Shortcuts:</strong>
-                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate • Esc=Clear • Enter=Copy AI • R=Review Mode • D=Delete Example • F=Delete Consumable • Q=Edit Query
+                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate • Esc=Clear • Enter=Copy AI • R=Review Mode • D=Delete Example • F=Delete Consumable • Q=Edit Query • L=Edit Label Reason
                 <br><strong>🔧 In Modals:</strong> Enter=Save/Confirm • Esc=Cancel
-                <br><strong>✅ Auto-saves to CSV file immediately!</strong>
+                <br><strong>✅ Auto-saves to database immediately!</strong>
             </div>
         </div>
     </div>
@@ -355,6 +366,20 @@
             <div class="modal-buttons">
                 <button class="btn btn-delete" onclick="confirmDeleteConsumable()">🗑️ Delete Consumable</button>
                 <button class="btn btn-nav" onclick="closeModal('confirmDeleteConsumableModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Label Reason Modal -->
+    <div id="editLabelReasonModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('editLabelReasonModal')">&times;</span>
+            <h3>📝 Edit Label Reason</h3>
+            <p>Add notes explaining why you chose this ESCI label:</p>
+            <textarea id="editLabelReasonInput" rows="4" placeholder="E.g., 'Query asks for spicy pizza and this item is exactly that' or 'User wants pasta but this can substitute'"></textarea>
+            <div class="modal-buttons">
+                <button class="btn btn-control" onclick="saveLabelReason()">💾 Save</button>
+                <button class="btn btn-nav" onclick="closeModal('editLabelReasonModal')">❌ Cancel</button>
             </div>
         </div>
     </div>
@@ -434,6 +459,19 @@
             document.getElementById('consumableIngredients').textContent = item.consumable_ingredients || 'Not specified';
             document.getElementById('queryText').textContent = item.query || '';
             document.getElementById('createdAt').textContent = item.created_at || '';
+
+            // Update label reason displays (database mode only)
+            if (isDatabaseMode(item)) {
+                // Human label reason
+                const humanLabelReason = item.human_label_reason || '';
+                document.getElementById('humanLabelReasonText').textContent = humanLabelReason || 'Not set';
+                document.getElementById('humanLabelReasonText').style.color = humanLabelReason ? '#495057' : '#6c757d';
+
+                // AI label reason
+                const aiLabelReason = item.ai_label_reason || '';
+                document.getElementById('aiLabelReasonText').textContent = aiLabelReason || 'Not set';
+                document.getElementById('aiLabelReasonText').style.color = aiLabelReason ? '#495057' : '#6c757d';
+            }
 
             const labelNames = { E: 'Exact', S: 'Substitute', C: 'Complement', I: 'Irrelevant', '': 'Not Labeled' };
             const labelEmojis = { E: '🟢', S: '🟡', C: '🟠', I: '🔴', '': '⚫' };
@@ -601,6 +639,7 @@
                     const item = data[currentIndex];
                     if (isDatabaseMode(item)) {
                         data[currentIndex].human_esci_label = '';
+                        data[currentIndex].human_label_reason = '';  // Also clear label reason
                     } else {
                         data[currentIndex].esci_label = '';
                     }
@@ -634,6 +673,24 @@
         // Toggle review mode
         async function toggleReviewMode() {
             const newReviewMode = !reviewMode;
+
+            // If trying to enter review mode, check if there are any annotations first
+            if (newReviewMode) {
+                // Count how many records have human labels
+                const annotatedCount = data.filter(item => {
+                    if (isDatabaseMode(item)) {
+                        return item.human_esci_label && item.human_esci_label !== '';
+                    } else {
+                        return item.esci_label && item.esci_label !== '';
+                    }
+                }).length;
+
+                if (annotatedCount === 0) {
+                    showStatus('⚠️ Zero items reviewed - cannot enter review mode', 'error');
+                    return; // Don't enter review mode
+                }
+            }
+
             await loadData(newReviewMode);
 
             const modeText = newReviewMode ? 'entered' : 'exited';
@@ -681,7 +738,7 @@
             if (data.length === 0) return;
 
             // Skip if any modal is open
-            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal', 'confirmDeleteConsumableModal'];
+            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal', 'confirmDeleteConsumableModal', 'editLabelReasonModal'];
             if (modals.some(modalId => {
                 const modal = document.getElementById(modalId);
                 return modal && modal.style.display === 'block';
@@ -736,6 +793,10 @@
                     e.preventDefault();
                     deleteConsumable();
                     break;
+                case 'l':
+                    e.preventDefault();
+                    editLabelReason();
+                    break;
             }
         });
 
@@ -759,6 +820,17 @@
                 } else if (e.key === 'Escape') {
                     e.preventDefault();
                     closeModal('editQueryModal');
+                }
+            });
+
+            // Add Enter and Escape key support for edit label reason modal
+            document.getElementById('editLabelReasonInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    saveLabelReason();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeModal('editLabelReasonModal');
                 }
             });
 
@@ -923,8 +995,9 @@
                     // Update local data regardless of mode
                     const item = data[currentIndex];
                     if (isDatabaseMode(item)) {
-                        // Database mode: clear human label
+                        // Database mode: clear human label and label reason
                         data[currentIndex].human_esci_label = '';
+                        data[currentIndex].human_label_reason = '';
                     } else {
                         // CSV mode: clear combined label
                         data[currentIndex].esci_label = '';
@@ -998,6 +1071,62 @@
             }
         }
 
+        // Edit label reason functionality
+        function editLabelReason() {
+            const item = data[currentIndex];
+
+            // Only works in database mode
+            if (!isDatabaseMode(item)) {
+                showStatus('❌ Label reason only available in database mode', 'error');
+                return;
+            }
+
+            // Check if human label exists
+            const humanLabel = item.human_esci_label || '';
+            if (!humanLabel) {
+                showStatus('⚠️ Set a human label first before adding a reason', 'error');
+                return;
+            }
+
+            const currentReason = item.human_label_reason || '';
+            document.getElementById('editLabelReasonInput').value = currentReason;
+            document.getElementById('editLabelReasonModal').style.display = 'block';
+
+            // Focus on the textarea for immediate typing
+            document.getElementById('editLabelReasonInput').focus();
+        }
+
+        async function saveLabelReason() {
+            const newReason = document.getElementById('editLabelReasonInput').value.trim();
+
+            try {
+                const response = await fetch('/api/update-label-reason', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        example_id: data[currentIndex].example_id,
+                        label_reason: newReason
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data
+                    data[currentIndex].human_label_reason = newReason;
+                    displayItem(currentIndex); // Refresh display
+                    closeModal('editLabelReasonModal');
+                    showStatus('✅ Label reason updated!');
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
         // Modal management
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
@@ -1005,7 +1134,7 @@
 
         // Close modal when clicking outside
         window.addEventListener('click', function(event) {
-            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal', 'confirmDeleteConsumableModal'];
+            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal', 'confirmDeleteConsumableModal', 'editLabelReasonModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {
