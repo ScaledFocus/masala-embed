@@ -362,6 +362,11 @@ def process_enhanced_json_data(
                     if candidate_id not in existing_ids:
                         continue
 
+                    # Extract reasoning if available
+                    reasoning = None
+                    if "reasoning" in row and pd.notna(row["reasoning"]):
+                        reasoning = row["reasoning"]
+
                     # Insert example (query-consumable pair)
                     cursor.execute(
                         """
@@ -374,17 +379,18 @@ def process_enhanced_json_data(
                     example_id = cursor.fetchone()[0]
                     examples_inserted += 1
 
-                    # Insert label
+                    # Insert label with reasoning
                     cursor.execute(
                         """
                         INSERT INTO label (labeler_id, example_id, esci_label,
-                                         auto_label_score)
-                        VALUES (%s, %s, %s, %s)
+                                         label_reason, auto_label_score)
+                        VALUES (%s, %s, %s, %s, %s)
                         """,
                         (
                             labeler_id,
                             example_id,
                             esci_label,
+                            reasoning,
                             1.0,
                         ),  # 1.0 score for synthetic data
                     )
