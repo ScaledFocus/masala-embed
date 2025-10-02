@@ -42,6 +42,28 @@ def p95(latencies_ms: list[float]) -> float:
     return float(statistics.quantiles(latencies_ms, n=100)[94])
 
 
+def measure_throughput(model, queries: list[str], batch_size: int = 32) -> float:
+    """Measures true batch throughput in Queries Per Second."""
+    if not queries:
+        return 0.0
+
+    # Warmup run
+    _ = model.encode_queries(queries[:batch_size], batch_size=batch_size)
+
+    print(f"[debug] Measuring throughput on {len(queries)} queries...")
+    t_start = time.time()
+    _ = model.encode_queries(queries, batch_size=batch_size)
+    t_end = time.time()
+
+    total_time = t_end - t_start
+    if total_time == 0:
+        return 0.0
+
+    qps = len(queries) / total_time
+    print(f"[debug] Throughput: {qps:.2f} QPS")
+    return qps
+
+
 def time_calls(fn, payloads: list[Any], warmup: int = 3) -> float:
     if not payloads:
         return 0.0
@@ -379,7 +401,10 @@ def evaluate_model(beir_model, corpus, queries, qrels, cost_per_1k: float):
     lat = time_calls(
         lambda batch: beir_model.encode_queries(batch, batch_size=1), probe, warmup=3
     )
-
+    #lat_p95 = float(lat)
+    # est_qps = 1000.0 / lat_p95 if lat_p95 > 0 else 0.0
+    all_query_texts = list(queries.values())
+    true_qps = measure_throughput(beir_model, all_query_texts)
     return {
         "R@1": float(r1),
         "R@5": float(r5),
@@ -387,7 +412,8 @@ def evaluate_model(beir_model, corpus, queries, qrels, cost_per_1k: float):
         "NDCG@10": float(n10),
         "MedR": float(medr),
         "Latency_ms_p95": float(lat),
-        # "Cost_per_1k_queries": float(cost_per_1k),
+        # "Est_Throughput_QPS": float(est_qps),
+        "True_Throughput_QPS": float(true_qps),
     }
 
 
