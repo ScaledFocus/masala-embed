@@ -1,0 +1,240 @@
+## Examples - Exact (E)
+
+These queries would return the anchor food candidate as a direct match.
+The anchor satisfies ALL constraints specified in the query.
+
+**IMPORTANT: Show diversity across all dimensions, especially Mood/Craving and Flavor Profile (30% usage).**
+**AVOID overusing Price (max 5%) and Location (max 8%) constraints.**
+**Include realistic user behavior: typos, abbreviations, truncations, word reordering, alternative names, and informal variations.**
+
+---
+
+**Anchor: Paneer Tikka Pizza (Vegetarian, Indian-Italian fusion, Spicy, Cheesy)**
+- "paneer pizza"
+- "paner tikka piza" (typo)
+- "vegetarian pizza"
+- "pizza paneer tikka" (reordered)
+- "cottage cheese pizza" (alternative name)
+- "spicy cheesy pizza"
+- "indian style pizza"
+- "tikka pizza"
+- "tikka piza" (typo + truncation)
+- "paneer tikka"
+- "comfort food pizza"
+- "indulgent veg dinner" (abbreviation)
+- "cheesy guilty pleasure"
+
+**Anchor: Chicken Biryani (Non-veg, Indian, Rice-based, Aromatic)**
+- "chiken biriyani" (typo)
+- "biryani chicken" (reordered)
+- "biryani"
+- "biriyani" (alternative spelling)
+- "rice with chicken"
+- "indian chicken rice"
+- "chkn biryani" (abbreviation)
+- "aromatic biryani"
+- "comfort food rice"
+- "celebration meal indian"
+- "chicken dum biryani"
+- "hyderabadi style chicken"
+- "hyderabadi biryan" (truncation)
+
+**Anchor: Masala Dosa (South Indian, Vegetarian, Breakfast, Crispy)**
+- "masla dosa" (typo)
+- "dosa masala" (reordered)
+- "dosa"
+- "dosai" (alternative name)
+- "south indian bfast" (abbreviation)
+- "crispy breakfast"
+- "potato dosa"
+- "traditional south indian"
+- "nostalgic breakfast"
+- "feel-good morning meal"
+
+**Anchor: Caesar Salad (American, Healthy, Light, Contains dairy & egg)**
+- "ceaser salad" (typo)
+- "salad caesar" (reordered)
+- "fresh salad"
+- "healthy lunch"
+- "light meal"
+- "green leafy salad"
+- "healthy comfort food"
+- "nutritious greens"
+- "fresh healthy option"
+
+**Anchor: Chocolate Brownie (Dessert, Sweet, Rich, Indulgent)**
+- "choco brownie" (abbreviation)
+- "brownie chocolate" (reordered)
+- "brownie"
+- "chocolatey dessert"
+- "rich chocolate treat"
+- "browny" (informal/typo)
+- "indulgent sweet"
+- "guilty pleasure dessert"
+- "cheat day brownie"
+- "stress relief chocolate"
+- "sweet comfort food"
+
+**Anchor: Butter Chicken (North Indian, Non-veg, Creamy, Rich)**
+- "butter chiken" (typo)
+- "chicken butter" (reordered)
+- "murgh makhani" (alternative name)
+- "creamy chicken curry"
+- "rich indian curry"
+- "north indian chicken"
+- "buttery chicken"
+- "comfort food curry"
+- "indulgent indian dinner"
+- "soul food chkn" (abbreviation)
+
+**Anchor: Vegan Buddha Bowl (Plant-based, Healthy, Colorful, Nutritious)**
+- "vegan bowl"
+- "budha bowl" (typo)
+- "bowl vegan" (reordered)
+- "healthy vegan meal"
+- "plant based lunch"
+- "nutritious bowl"
+- "fresh vegan food"
+- "feel-good healthy bowl"
+- "wholesome plant meal"
+
+**Anchor: Pad Thai Noodles (Thai, Spicy-Sweet, Tangy, Street food)**
+- "padthai" (no space)
+- "thai pad" (reordered)
+- "thai noodles"
+- "phad thai" (alternative spelling)
+- "tangy noodles"
+- "asian street food"
+- "spicy sweet noodles"
+- "adventurous asian food"
+- "exotic noodles"
+- "zesty thai"
+
+**Anchor: Mango Lassi (Indian beverage, Sweet, Creamy, Tropical)**
+- "mango lasi" (typo)
+- "lassi mango" (reordered)
+- "sweet lassi"
+- "mango yogurt drink" (alternative description)
+- "tropical drink"
+- "creamy mango drink"
+- "indian yogurt drink"
+- "refreshing mango"
+- "feel-good tropical beverage"
+- "sweet comfort drink"
+
+**Anchor: Pepperoni Pizza (Italian-American, Non-veg, Cheesy, Classic)**
+- "peperoni pizza" (typo)
+- "pizza pepperoni" (reordered)
+- "meat pizza"
+- "classic pizza"
+- "cheesy pepperoni"
+- "italian american pizza"
+- "comfort food pizza"
+- "guilty pleasure pepperoni"
+- "movie night pizza"
+
+**Anchor: Avocado Toast (Healthy, Trendy, Fresh, Brunch)**
+- "avacado toast" (typo)
+- "toast avocado" (reordered)
+- "healthy brunch"
+- "fresh breakfast"
+- "trendy brunch"
+- "nutritious morning meal"
+- "feel-good avocado"
+- "wholesome toast"
+
+**Anchor: Red Velvet Cupcake (Dessert, Sweet, Creamy frosting)**
+- "red velvet dessert"
+- "velvet red cupcake" (reordered)
+- "red velvet treat"
+- "red velv cupcake" (truncation)
+- "creamy frosting cupcake"
+- "celebration dessert"
+- "indulgent red velvet"
+- "reward meal cupcake"
+- "sweet red velvet"
+
+**Anchor: Green Tea (Japanese beverage, Hot, Healthy)**
+- "grn tea" (abbreviation)
+- "tea green" (reordered)
+- "healthy tea"
+- "japanese tea"
+- "hot tea"
+- "matcha green tea"
+- "feel better tea"
+- "calming tea"
+
+**Anchor: Fish Tacos (Mexican, Seafood, Tangy, Fresh)**
+- "fish taco" (singular)
+- "tacos fish" (reordered)
+- "mexican seafood"
+- "tangy tacos"
+- "fresh fish meal"
+- "zesty fish tacos"
+- "adventurous tacos"
+- "coastal mexican food"
+
+**Anchor: Pav Bhaji (Indian street food, Spicy, Vegetarian, Buttery)**
+- "pav baji" (typo)
+- "bhaji pav" (reordered)
+- "pao bhaji" (alternative spelling)
+- "spicy street food"
+- "indian vegetarian meal"
+- "buttery veg food"
+- "mumbai street food"
+- "nostalgic indian snack"
+- "comfort food indian"
+
+**Anchor: Matcha Latte (Japanese beverage, Green tea, Creamy, Trendy)**
+- "macha latte" (typo)
+- "latte matcha" (reordered)
+- "matcha drink"
+- "green tea latte"
+- "creamy matcha"
+- "japanese latte"
+- "trendy matcha beverage"
+- "feel-good green tea"
+
+**Anchor: Falafel Wrap (Mediterranean, Vegan, Healthy, Savory)**
+- "falafl wrap" (typo)
+- "wrap falafel" (reordered)
+- "chickpea wrap" (alternative description)
+- "vegan wrap"
+- "mediterranean food"
+- "healthy falafel"
+- "plant based wrap"
+- "savory vegan meal"
+- "wholesome falafel"
+
+**Anchor: Tiramisu (Italian dessert, Coffee-flavored, Creamy, Indulgent)**
+- "tiramissu" (typo)
+- "coffee dessert"
+- "italian sweet"
+- "creamy tiramisu"
+- "coffee flavored treat"
+- "dessert tiramisu" (reordered)
+- "indulgent italian dessert"
+- "celebration tiramisu"
+- "reward meal dessert"
+
+**Anchor: Spicy Ramen (Japanese, Hot soup, Umami, Comfort)**
+- "spicy ramn" (typo)
+- "ramen spicy" (reordered)
+- "hot ramen soup"
+- "japanese noodle soup"
+- "spicy noodle bowl" (alternative description)
+- "umami ramen"
+- "spicy comfort food"
+- "soul food ramen"
+- "rainy day ramen"
+- "hangover cure soup"
+
+**Anchor: Peanut Butter Smoothie (Beverage, Protein-rich, Creamy, Nutty)**
+- "pb smoothie" (abbreviation)
+- "smoothie peanut butter" (reordered)
+- "protein smoothie"
+- "nutty drink"
+- "creamy pb smoothie"
+- "peanut butter drink"
+- "post-workout smoothie"
+- "feel-good protein shake"
