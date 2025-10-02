@@ -44,6 +44,13 @@ class GeneratedQuery(BaseModel):
         "{'cuisine': 'Indian', 'urgency': 'fast delivery'}, "
         "{'dietary_restrictions': 'Vegetarian', 'meal_type': 'Starters'}",
     )
+    reasoning: str = Field(
+        description="Brief explanation (1-2 sentences) of why this query matches "
+        "the ESCI label (E/S/C/I) for this food item. Focus on the relationship "
+        "between the query and the food candidate."
+        "Also, talk about why the chosen dimensions are relevant."
+        "Finally, why would a user realistically type this query?"
+    )
 
 
 class CandidateQueries(BaseModel):
@@ -135,13 +142,22 @@ def convert_output_to_dataframe(output: QueryGenerationOutput):
                 "dimensions_json": json.dumps(query_obj.dimensions)
                 if query_obj.dimensions
                 else "{}",
+                "reasoning": query_obj.reasoning
+                if hasattr(query_obj, "reasoning")
+                else "",
             }
             rows.append(row)
 
     df = pd.DataFrame(rows)
 
     # Reorder columns for better readability
-    base_columns = ["consumable_id", "consumable_name", "query", "dimensions_json"]
+    base_columns = [
+        "consumable_id",
+        "consumable_name",
+        "query",
+        "dimensions_json",
+        "reasoning",
+    ]
     df = df[base_columns]
 
     return df
