@@ -5,13 +5,13 @@
 # Edit the parameters below, then run: ./run_annotation_app.sh
 
 # Choose mode: "CSV" or "DATABASE"
-MODE="DATABASE"
+MODE="CSV"
 
 # CSV mode parameters (used when MODE="CSV")
-CSV_FILE=""
+CSV_FILE="/Users/luvsuneja/Documents/repos/masala-embed/esci-dataset/mlruns/180351575577738277/c3e73bf4cd934d1d981e57774cfd2d20/artifacts/outputs/queries_E_batch50_limit500_start3000_v3_20251002_160353.csv"
 
 # Database mode parameters (used when MODE="DATABASE")
-RUN_ID="bc54925269c74aaba03741b1214c7766"
+RUN_ID="0c611a39b1844107b10d4f7ac9282770"
 LABELER_NAME="Luv"
 
 # Display info
