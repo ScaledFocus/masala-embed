@@ -1,0 +1,113 @@
+## Examples - Complement (C)
+
+These queries would cause the anchor to appear as a complement/pairing in search results.
+**IMPORTANT**: The anchor is the search result that appears as a pairing. Generate queries that users would search for which this anchor would appear as a complement/pairing suggestion.
+
+**DO NOT include or imply the anchor item in the query.** Queries should ONLY mention the complement item—the anchor appears as a pairing suggestion. The anchor should not be remotely implied.
+
+**What NOT to do:**
+- **Anchor: Ice Cream** ❌ "brownie + ice cream" (mentions anchor) ❌ "brownie and something cold" (implies anchor) ✅ "brownie"
+- **Anchor: French Fries** ❌ "burger and fries" (mentions anchor) ❌ "burger with sides" (implies anchor) ✅ "burger"
+- **Anchor: Garlic Bread** ❌ "pizza with garlic bread" (mentions anchor) ❌ "pizza and bread" (implies anchor) ✅ "pizza"
+- **Anchor: Croissant** ❌ "coffee and croissant" (mentions anchor) ❌ "coffee and something savory" (implies anchor) ✅ "coffee"
+- **Anchor: Cookies** ❌ "chai and cookies" (mentions anchor) ❌ "chai snacks" (implies anchor/pairing) ✅ "chai" or "evening chai"
+
+**Complement patterns:**
+1. Functional pairings (condiment → main): Raita→"biryani", Naan→"curry"
+2. Substantial accompaniments (side → main): French Fries→"burger", Garlic Bread→"pizza"
+3. Course pairings (appetizer ↔ main ↔ dessert): Tomato Soup→"pasta", Chicken Wings→"pizza"
+4. Multi-item same-category (main ↔ main, app ↔ app): Pizza↔"pasta", Samosa↔"pakora"
+5. Beverage pairings: Coffee→"dessert", Masala Chai→"snacks", Milkshake→"burger"
+6. Regional bundles: thali components, combo meals, breakfast platters
+
+---
+
+**Anchor: Pizza (Main dish)**
+- "pasta", "garlic bread", "wings", "breadsticks", "lasagna", "antipasti", "ravioli", "gnocchi"
+
+**Anchor: Coca-Cola (Beverage - pairs with meals AND snacks)**
+- "pizza", "burger", "pasta", "fried chicken", "sandwich", "chips", "fries", "popcorn", "nachos", "wings"
+
+**Anchor: Garlic Bread (Side - commonly pairs with Italian meals)**
+- "pizza", "pasta", "spaghetti", "lasagna", "italian food", "marinara", "alfredo", "soup"
+
+**Anchor: Raita (Side - pairs with Indian meals)**
+- "biryani", "curry", "spicy food", "indian meal", "tandoori", "tikka", "kebab", "pulao", "aloo paratha", "pulao", "rajma chawal"
+
+**Anchor: French Fries (Side - commonly pairs with fast food)**
+- "burger", "sandwich", "hot dog", "wrap", "chicken nuggets", "fried chicken", "fried fish", "steak", "bbq pulled pork", "fried fish"
+
+**Anchor: Pasta (Main dish)**
+- "pizza", "garlic bread", "breadsticks", "italian risoto", "lasagna", "antipasti", "ravioli", "gnocchi", "arancini"
+
+**Anchor: Biryani (Main dish)**
+- "curry", "kebab", "tandoori", "tikka", "korma", "nihari", "dal", "butter chicken", "rogan josh"
+
+**Anchor: Sambar (Side - pairs with South Indian)**
+- "dosa", "idli", "vada", "uttapam", "south indian breakfast", "rava dosa", "pongal", "pesarattu", "appam"
+
+**Anchor: Milkshake (Substantial beverage - pairs with meals)**
+- "burger", "fries", "sandwich", "pizza", "wings", "fast food", "club sandwich", "brownie", "dessert"
+
+**Anchor: Miso Soup (Starter - pairs with Japanese)**
+- "sushi", "ramen", "japanese food", "sashimi", "teriyaki", "bento box", "edamame"
+
+**Anchor: Chutney (Condiment - pairs with Indian snacks)**
+- "samosa", "dosa", "idli", "vada", "pakora", "indian snacks", "south indian", "momos", "kahndvi", "kachori", "dhokla", "chaat"
+
+**Anchor: Guacamole (Dip - pairs with Mexican)**
+- "tacos", "nachos", "burrito", "quesadilla", "mexican food", "chips", "tortilla", "fajitas"
+
+**Anchor: Coleslaw (Side - pairs with fried/grilled)**
+- "burger", "fried chicken", "grilled chicken", "bbq", "sandwich", "chicken wings", "wrap"
+
+**Anchor: Pickle (Condiment - pairs with Indian meals)**
+- "biryani", "paratha", "curry", "dal", "indian food", "rice", "roti", "thali"
+
+**Anchor: Papad (Side - pairs with Indian meals)**
+- "dal", "curry", "biryani", "thali", "indian meal", "rice", "roti", "sabzi"
+
+**Anchor: Salsa (Dip - pairs with Mexican/snacks)**
+- "tacos", "nachos", "chips", "burrito", "mexican food", "quesadilla", "tortilla"
+
+**Anchor: Breadsticks (Side - pairs with Italian commonly)**
+- "pizza", "pasta", "italian", "marinara", "soup", "salad", "lasagna"
+
+**Anchor: Wings (Appetizer/Side - pairs with mains/drinks)**
+- "pizza", "beer", "burger", "fries", "sports food", "party food", "ranch", "blue cheese"
+
+**Anchor: Coffee (Beverage - pairs with breakfast/desserts)**
+- "breakfast", "croissant", "muffin", "cake", "brownie", "sandwich", "bagel", "donut", "pastry"
+
+**Anchor: Tea/Chai (Beverage - pairs with snacks)**
+- "samosa", "pakora", "biscuits", "sandwich", "toast", "snacks", "namkeen", "cookies"
+
+**Anchor: Naan/Roti (Bread - pairs with curries)**
+- "curry", "dal", "butter chicken", "paneer", "gravy", "indian food", "tikka masala", "korma"
+
+**Anchor: Rice (Staple - pairs with curries/stir-fries)**
+- "curry", "dal", "stir fry", "chinese", "chicken", "fish", "gravy", "sabzi", "penang curry", "black beans"
+
+**Anchor: Edamame (Starter - pairs with Asian)**
+- "sushi", "ramen", "japanese", "asian food", "poke bowl", "miso soup", "tempura", "teriyaki"
+
+**Anchor: Spring Rolls (Starter - pairs with Asian mains)**
+- "noodles", "fried rice", "chinese food", "thai food", "asian meal", "manchurian", "soup"
+
+**Anchor: Samosa (Snack/Appetizer)**
+- "pakora", "chai", "chutney", "kachori", "namkeen", "indian snacks", "chaat", "momos"
+
+**Anchor: Ice Cream (Dessert)**
+- "brownie", "cake", "waffle", "cookie", "hot fudge", "pie", "dessert", "sundae"
+
+**Anchor: Idli (South Indian breakfast)**
+- "dosa", "vada", "sambar", "chutney", "south indian", "uttapam", "pongal", "upma", "pesarattu"
+
+**Anchor: Burger (Main dish)**
+- "fries", "pizza", "wings", "onion rings", "milkshake", "sandwich", "nuggets", "coleslaw"
+
+**Anchor: Brownie (Dessert)**
+- "ice cream", "coffee", "cake", "cookie", "dessert", "hot chocolate", "milkshake"
+
+**Anchor: Dosa (South Indian main)**
+- "idli", "vada", "sambar", "chutney", "coffee", "uttapam"
