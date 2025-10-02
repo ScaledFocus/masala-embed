@@ -54,15 +54,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def find_consumables_by_ids(consumable_ids: list[str]) -> list[tuple[str, str]]:
+def find_consumables_by_ids(consumable_ids: list[str]) -> list[tuple[int, str]]:
     """Find consumables by their IDs.
 
     Args:
-        consumable_ids: List of consumable IDs to find
+        consumable_ids: List of consumable IDs to find (as strings)
 
     Returns:
         List of tuples (consumable_id, consumable_name)
     """
+    # Convert string IDs to integers
+    int_ids = [int(id_str) for id_str in consumable_ids]
+
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -72,7 +75,7 @@ def find_consumables_by_ids(consumable_ids: list[str]) -> list[tuple[str, str]]:
                 WHERE id = ANY(%s)
                 ORDER BY id
                 """,
-                (consumable_ids,),
+                (int_ids,),
             )
             results = cursor.fetchall()
             return [(row[0], row[1]) for row in results]
