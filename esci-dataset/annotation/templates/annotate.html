@@ -232,6 +232,10 @@
                     </h3>
                     <div class="query-text">🔎 "<span id="queryText"></span>"</div>
                     <div><strong>Created:</strong> <span id="createdAt"></span></div>
+                    <div id="queryFiltersContainer" style="margin-top: 10px; display: none;">
+                        <strong>🏷️ Query Filters:</strong>
+                        <div id="queryFiltersText" style="background-color: #f8f9fa; padding: 8px; border-radius: 4px; margin-top: 5px; font-family: monospace; font-size: 12px; white-space: pre-wrap;"></div>
+                    </div>
                 </div>
             </div>
 
@@ -260,6 +264,10 @@
                 <!-- CSV mode: single combined label -->
                 <div id="csvLabel" style="display: none;">
                     <div class="current-label" id="currentLabel"></div>
+                    <div style="background-color: #fff8f5; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 3px solid #ff6b35;">
+                        <strong>🤖 AI Label Reason:</strong>
+                        <div id="csvReasoningText" style="margin-top: 10px; font-style: italic; color: #6c757d;">Not set</div>
+                    </div>
                 </div>
             </div>
 
@@ -460,6 +468,25 @@
             document.getElementById('queryText').textContent = item.query || '';
             document.getElementById('createdAt').textContent = item.created_at || '';
 
+            // Display query_filters if available (only dimensions portion)
+            const queryFiltersContainer = document.getElementById('queryFiltersContainer');
+            const queryFiltersText = document.getElementById('queryFiltersText');
+            if (item.query_filters) {
+                try {
+                    const filters = typeof item.query_filters === 'string'
+                        ? JSON.parse(item.query_filters)
+                        : item.query_filters;
+                    // Only show dimensions, not rule_based_dietary_restrictions
+                    const dimensions = filters.dimensions || filters;
+                    queryFiltersText.textContent = JSON.stringify(dimensions, null, 2);
+                    queryFiltersContainer.style.display = 'block';
+                } catch (e) {
+                    queryFiltersContainer.style.display = 'none';
+                }
+            } else {
+                queryFiltersContainer.style.display = 'none';
+            }
+
             // Update label reason displays (database mode only)
             if (isDatabaseMode(item)) {
                 // Human label reason
@@ -506,6 +533,11 @@
                 const labelDiv = document.getElementById('currentLabel');
                 labelDiv.className = `current-label label-${currentLabel}`;
                 labelDiv.textContent = `${labelEmojis[currentLabel]} ${currentLabel} - ${labelNames[currentLabel]}`;
+
+                // Display AI reasoning from CSV
+                const reasoning = item.reasoning || '';
+                document.getElementById('csvReasoningText').textContent = reasoning || 'Not set';
+                document.getElementById('csvReasoningText').style.color = reasoning ? '#495057' : '#6c757d';
             }
 
             // Update progress
