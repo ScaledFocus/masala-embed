@@ -1,0 +1,158 @@
+**Role:** You are a senior world-class expert analyst specializing in food and grocery delivery apps (Zomato, Swiggy, DoorDash, Instacart, BigBasket). Your task is to generate **realistic user queries** that customers would actually type when searching for food on food and grocery delivery apps. Make sure your queries are grounded in the available food candidates displayed in markdown format i.e., the generated queries should have one of the candidate food items as the target or search result.
+
+**Context:**
+We are building a dataset similar to Amazon ESCI, but for food delivery. Generate queries that mirror natural search behavior - think like a hungry person typing quickly on their phone or a housewife who forgot to order a key ingredient.
+
+**What are ESCI labels?**
+
+**Exact (E)**
+
+Indicates an item that directly and precisely matches all constraints of the search query.
+
+- Query: "Vegetarian Paneer Tikka pizza delivery"
+- Exact match: Product listed as "Vegetarian Paneer Tikka Pizza – Delivered Hot" from a restaurant with verified delivery service.
+
+**Substitute (S)**
+
+Refers to an item that can be a replacement for the queried item.
+
+- Query: "Vegetarian Paneer Tikka pizza delivery"
+- Substitute: Product listed as "Vegetarian Margherita Pizza – Delivery" (different topping but similar vegetarian, pizza-based meal).
+
+**Complement (C)**
+
+The item is related and typically paired together with the queried item.
+
+- Query: "Vegetarian Paneer Tikka pizza delivery"
+- Complement: Product listed as "Garlic Breadsticks (side dish)" or "Pepsi 500ml Bottle"—items often ordered along with pizza as part of a meal.
+
+**Irrelevant (I)**
+
+Assigned to products that do not satisfy the query in any meaningful way.
+
+- Query: "Vegetarian Paneer Tikka pizza delivery"
+- Irrelevant: Listing for "Chicken Biryani delivery" or "Sushi Platter delivery" (does not match the cuisine, vegetarian constraint, or food type).
+
+We will explicitly generate queries that satisfy [E/S/C/I]
+
+**Available Food Candidates:** 
+[FOOD CANDIDATES]
+
+## Available Dimensions:
+
+1. **Dietary Restrictions:** Vegetarian, Vegan, Non-vegetarian, Halal, Kosher, Gluten-free, Dairy-free, Nut-free, Low-carb, Keto, Paleo, Diabetic-friendly, Lacto Vegetarian, Pescetarian, Lacto-Ovo Vegetarian, Raw Food, Low sodium, Heart Healthy
+2. **Cuisine:** Indian, Italian (Pizza, Pasta), Chinese, Thai, Japanese, Korean, Mediterranean, Middle Eastern, Mexican, American, Continental, Fusion, Fast Food, Vietnamese, French, Mongolian, Lebanese, Arabic, Iranian, Afghan, Greek, Spanish, Russian, German, Ethiopian, South Indian, North Indian
+3. **Healthiness:** Healthy, Low-calorie, Organic, Fresh, Light, Grilled, Steamed, Wholesome, Natural, Nutritious, Clean, Boiled, Air Fried
+4. **Meal Type:** Breakfast, Brunch, Lunch, Snacks, Dinner, Late-night, Beverages, Desserts, Street Food, Party food, Cocktail, Pre-workout, Post-workout, Kids meal, Baby food, Comfort food, Picnic food, Office lunch, Tea-time snacks, Festival food, Holiday special, Starters, Appetizers, Main course, Side dish
+5. **Nutritional Profile:** High Protein, Low Carb, High Fiber, Sugar-free, High Fat, Low Fat
+6. **Urgency:** quick, fast delivery, under 30 minutes, 10 minutes, same day, scheduled, pre-order
+7. **Price:** cheap, under 5 dollars, gourmet, under $15, under $20, family pack, luxury, discount, coupon, premium, value meal, combo deal, bulk order, budget
+8. **Location:** near me, downtown, in my area
+
+## Instructions
+
+1. Start with anchor candidate (consumable_name, consumable_ingredients)
+2. Sample 0-4 dimensions that are realistic for that anchor. The distribution is typically as follows:
+    - 40% queries: simple (0 <direct food query> to 1 dimensions)
+    - 25% queries: moderate (2 dimensions)
+    - 20% queries: specific (3 dimensions)
+    - 15% queries: complex (3+ dimensions)
+3. **Generate exactly [QUERIES_PER_ITEM] natural queries** for each anchor using those dimensions. You can use synonyms for the dimension attribute. It's not necessary to use the exact same phrase.
+    - Keep queries realistic, like someone typing fast on their phone or a person who forgot to order an ingredient.
+    - **Embrace diversity in language**: Use varied vocabulary, slang, abbreviations, and natural speech patterns
+    - **Include realistic imperfections**: Occasional typos, weird word ordering, incomplete phrases, run-on searches
+    - **Don't limit creativity**: Generate diverse query styles that reflect real user behavior
+    - Avoid contradictions (e.g., "dairy-free cow's milk").
+4. **User Persona Context:** Think like these real users:
+    - **Busy office worker:** "quick lunch", "delivery under 30 min"
+    - **Health conscious:** "healthy options", "low calorie"
+    - **Budget student:** "cheap food", "under $10"
+    - **Family parent:** "kids meal", "family pack"
+5. Final reality check: Before submitting each query, ask: **"Would I actually type this into a food app?"** If no, simplify it.
+6. **Ground every query** so it could be answered by at least one candidate from the provided list.
+
+[QUERY_EXAMPLES]
+
+## Output Format:
+
+Return as a json of the 
+
+**Example Structure:** 
+
+```markdown
+{
+  "candidates": [
+    {
+      "id": 1,
+      "name": "Paneer Tikka",
+      "queries": [
+        {
+          "query": "paneer tikka",
+          "dimensions": {}
+        },
+        {
+          "query": "veg starters",
+          "dimensions": {
+            "meal_type": "Starters",
+            "dietary_restrictions": "Vegetarian"
+          }
+        },
+        {
+          "query": "cheap paneer near me",
+          "dimensions": {
+            "price": "cheap",
+            "location": "near me"
+          }
+        },
+        {
+          "query": "paneer tika delivry",
+          "dimensions": {
+            "cuisine": "Indian",
+            "urgency": "fast delivery"
+          }
+        }
+      ]
+    },
+    {
+      "id": 47,
+      "name": "Braised Tofu",
+      "queries": [
+        {
+          "query": "tofu",
+          "dimensions": {}
+        },
+        {
+          "query": "vegan protein",
+          "dimensions": {
+            "dietary_restrictions": "Vegan"
+          }
+        },
+        {
+          "query": "healthy chinese dinner",
+          "dimensions": {
+            "healthiness": "Healthy",
+            "cuisine": "Chinese"
+          }
+        },
+        {
+          "query": "braised tofu fast delivery",
+          "dimensions": {
+            "cuisine": "Chinese",
+            "healthiness": "Steamed",
+            "urgency": "fast delivery"
+          }
+        },
+        {
+          "query": "budget vegan main course near me",
+          "dimensions": {
+            "price": "budget",
+            "dietary_restrictions": "Vegan",
+            "meal_type": "Main course",
+            "location": "near me"
+          }
+        }
+      ]
+    }
+  ]
+}
+```

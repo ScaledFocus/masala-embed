@@ -19,7 +19,7 @@ create table if not exists query (
 );
 
 -- Index for efficient query text searches
-create index if not exists idx_query_text on query (query_text);
+create index if not exists idx_query_content on query (query_content);
 
 -- Index for filtering by data generation hash
 create index if not exists idx_query_data_gen_hash on query (data_gen_hash);

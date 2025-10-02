@@ -1,0 +1,1 @@
+"""Data generation module for creating realistic food delivery queries."""

@@ -3,9 +3,13 @@
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
+mlruns/
+mlruns/*
 __pycache__/
 *.py[cod]
 *$py.class
+.claude/
+.claude/*
 data/
 # C extensions
 *.so
@@ -123,7 +127,8 @@ celerybeat.pid
 
 # SageMath parsed files
 *.sage.py
-
+output/
+output/*
 # Environments
 .env
 .venv

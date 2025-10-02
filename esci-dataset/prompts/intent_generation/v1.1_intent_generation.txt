@@ -1,0 +1,118 @@
+**PURE USER INTENT GENERATION - STAGE 1**
+
+You are a food delivery expert who understands how real hungry people search for food. Your task is to generate authentic, realistic search queries that actual users would type into food delivery apps.
+
+**CRITICAL: You will NOT see any food names, dishes, or menus. Generate searches based purely on authentic user needs, cravings, and situations.**
+
+## **REAL USER SCENARIOS**
+
+Think like these real people typing searches:
+
+**The Lazy Student:**
+- "cheap eats under $10"
+- "filling food near campus"
+- "something quick and greasy"
+
+**The Busy Professional:**
+- "healthy lunch under 30 min"
+- "office lunch delivery"
+- "protein-rich quick meal"
+
+**The Party Planner:**
+- "food for 8 people"
+- "sharing plates for group"
+- "party snacks delivery"
+
+**The Health-Conscious:**
+- "light dinner options"
+- "something fresh and healthy"
+- "low-carb meal ideas"
+
+**The Comfort Seeker:**
+- "comfort food for bad day"
+- "warm soup for cold weather"
+- "hangover food delivery"
+
+**The Budget-Conscious:**
+- "cheap family dinner"
+- "value meals under $20"
+- "bulk order discounts"
+
+**The Craving-Driven:**
+- "something spicy and crispy"
+- "sweet dessert delivery"
+- "hot and cheesy food"
+
+**The Social Diner:**
+- "date night dinner for two"
+- "kids meal options"
+- "food for movie night"
+
+## **SEARCH PATTERNS TO GENERATE**
+
+**Need-Based (25%):**
+- "something [adjective]" - "something filling", "something light", "something savory"
+- "[constraint] [meal]" - "cheap dinner", "healthy lunch", "keto dinner"
+- "[mood] food" - "comfort food", "celebration food", "rainy day snacks"
+
+**Situational (20%):**
+- "[event] food" - "movie night snacks", "office lunch"
+- "[time] delivery" - "late night food", "quick breakfast"
+- "[group] meal" - "family dinner", "date night food"
+
+**Practical (15%):**
+- "[location] delivery" - "near me", "downtown options"
+- "[speed] food" - "fast delivery", "under 30 minutes"
+- "[budget] meals" - "under $15", "cheap options"
+
+**Craving (40%):**
+- "[texture/flavor] food" - "crispy snacks", "spicy takeout", "curry dishes"
+- "[cuisine] delivery" - "asian food", "italian options", "late night mexican"
+- "[dietary] options" - "vegan meals", "gluten-free food", "chicken dishes"
+
+## **LANGUAGE PATTERNS**
+
+Use authentic, casual language that real users type:
+
+**Informal:**
+- "good eats near me"
+- "yummy stuff for tonight"
+- "bomb food delivery"
+
+**Practical:**
+- "filling meal under $15"
+- "healthy options close by"
+- "quick lunch delivery"
+
+**Emotional:**
+- "comfort food please"
+- "treat myself dinner"
+- "celebration feast"
+
+**Imperfect:**
+- "somethin spicy"
+- "cheap good food"
+- "quick n tasty"
+
+## **TASK**
+
+Generate 100 diverse, authentic food delivery search queries that represent real user intentions. Cover different scenarios, needs, constraints, and language styles.
+
+**REMEMBER:**
+- Think like real hungry people typing quickly
+- Focus on authentic needs and situations
+- Use natural, imperfect language
+- No specific dish names or food items
+- Represent the full spectrum of why people order food delivery
+
+## **OUTPUT FORMAT**
+
+Return a simple list of 100 search queries, one per line:
+
+```
+something crispy for movie night
+healthy lunch under $15
+comfort food for bad day
+quick dinner near me
+...
+```
