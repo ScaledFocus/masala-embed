@@ -366,6 +366,7 @@ def load_database_data(run_id, labeler_name):
             e.consumable_id,
             e.example_gen_hash,
             q.query_content as query,
+            q.query_filters,
             q.created_at,
             c.consumable_name,
             c.consumable_ingredients,
