@@ -192,9 +192,6 @@ def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
                     data_gen_hash = tags.get("mlflow.source.git.commit", "unknown")
 
                 # Extract metrics
-                total_queries = run.get("metrics.total_queries_generated", 0)
-                unique_queries = run.get("metrics.unique_queries_generated", 0)
-                successful_matches = run.get("metrics.successful_matches", 0)
                 runtime_seconds = run.get("metrics.total_runtime_seconds", 0)
 
                 # Calculate end_idx based on start_idx and limit
@@ -214,9 +211,6 @@ def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
                     "limit": limit,
                     "batch_size": batch_size,
                     "model": model,
-                    "total_queries_generated": total_queries,
-                    "unique_queries_generated": unique_queries,
-                    "successful_matches": successful_matches,
                     "runtime_seconds": runtime_seconds,
                     "start_time": start_time,
                     "end_time": end_time,
@@ -304,8 +298,6 @@ def main():
     print(
         f"Migration statuses: {summary_df['migration_status'].value_counts().to_dict()}"
     )
-    print(f"Total queries generated: {summary_df['total_queries_generated'].sum():,}")
-    print(f"Total unique queries: {summary_df['unique_queries_generated'].sum():,}")
     date_range = f"{summary_df['start_time'].min()} to {summary_df['start_time'].max()}"
     print(f"Date range: {date_range}")
     print(f"\n💾 Summary saved to: {output_file}")
