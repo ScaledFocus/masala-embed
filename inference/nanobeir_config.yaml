@@ -17,7 +17,7 @@ models:
   
   vllm_api_encoder:
     # This should match the model ID you start the vLLM server with
-    model_name: Qwen/qwen3-embedding-0.6b 
+    model_name: Qwen/Qwen3-embedding-0.6B 
     # vLLM's default OpenAI-compatible API endpoint
     base_url: http://172.24.16.155:8000/v1
     max_len: 512 # Truncate to match the model's context
