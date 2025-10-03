@@ -11,7 +11,7 @@ HOST = "0.0.0.0"
 def setup_environment():
     """Set up environment variables for optimal performance."""
     os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    #os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 def start_vllm_server():
