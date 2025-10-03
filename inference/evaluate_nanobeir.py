@@ -219,20 +219,21 @@ class STModel:
             texts, convert_to_numpy=True, batch_size=batch_size, show_progress_bar=True
         )
 
+
 # Add this entire class to your evaluate_nanobeir.py script
+
 
 class QwenVLModel:
     """
     Custom model loader for a Qwen Vision-Language model to extract text embeddings.
     This uses the main transformers library instead of sentence-transformers.
     """
+
     def __init__(self, hf_id: str):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.tokenizer = AutoTokenizer.from_pretrained(hf_id, trust_remote_code=True)
         self.model = AutoModel.from_pretrained(
-            hf_id, 
-            trust_remote_code=True, 
-            torch_dtype=torch.bfloat16
+            hf_id, trust_remote_code=True, torch_dtype=torch.bfloat16
         ).to(self.device)
         self.model.eval()
         print(f"Loaded {hf_id} on {self.device} with dtype {self.model.dtype}")
@@ -240,26 +241,35 @@ class QwenVLModel:
     def _embed(self, texts: list[str]) -> list[list[float]]:
         # This model doesn't use a simple tokenizer, it uses a processor
         # that handles both text and images. We are only providing text.
-        inputs = self.tokenizer(texts, return_tensors='pt', padding=True, truncation=True)
+        inputs = self.tokenizer(
+            texts, return_tensors="pt", padding=True, truncation=True
+        )
         inputs = {key: val.to(self.device) for key, val in inputs.items()}
 
         with torch.no_grad():
             # Get the model's hidden states
             outputs = self.model(**inputs, output_hidden_states=True)
-            
+
             # Use the last hidden state
             last_hidden_state = outputs.hidden_states[-1]
-            
+
             # Perform mean pooling to get a single vector per text
             # (This is a standard way to get sentence embeddings)
-            mask = inputs['attention_mask'].unsqueeze(-1).expand(last_hidden_state.size()).float()
+            mask = (
+                inputs["attention_mask"]
+                .unsqueeze(-1)
+                .expand(last_hidden_state.size())
+                .float()
+            )
             sum_embeddings = torch.sum(last_hidden_state * mask, 1)
             sum_mask = torch.clamp(mask.sum(1), min=1e-9)
             pooled_embeddings = sum_embeddings / sum_mask
 
         # Normalize the embeddings
-        normalized_embeddings = torch.nn.functional.normalize(pooled_embeddings, p=2, dim=1)
-        
+        normalized_embeddings = torch.nn.functional.normalize(
+            pooled_embeddings, p=2, dim=1
+        )
+
         return normalized_embeddings.cpu().tolist()
 
     def encode_queries(self, queries: list[str], batch_size: int = 32, **kwargs):
@@ -269,6 +279,7 @@ class QwenVLModel:
         # The BEIR library passes the corpus as a list of dictionaries
         texts = [doc.get("title", "") + " " + doc.get("text", "") for doc in corpus]
         return self._embed(texts)
+
 
 class QwenHFEncoder:
     """
@@ -575,7 +586,11 @@ def main():
             m_id = models_cfg["colqwen_baseline"]["hf_id"]
             print(f"[colqwen_baseline] {m_id}")
             out = evaluate_model(
-                QwenVLModel(m_id), corpus, queries, qrels, cost.get("colqwen_baseline", 0.0)
+                QwenVLModel(m_id),
+                corpus,
+                queries,
+                qrels,
+                cost.get("colqwen_baseline", 0.0),
             )
             all_out[ds]["colqwen_baseline"] = out
 
