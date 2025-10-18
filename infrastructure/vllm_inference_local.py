@@ -51,4 +51,5 @@ def start_vllm_server():
 
 
 if __name__ == "__main__":
+    setup_environment()
     start_vllm_server()

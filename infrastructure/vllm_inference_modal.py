@@ -46,7 +46,7 @@ VLLM_PORT = 8000
 
 @app.function(
     image=vllm_image,
-    gpu=f"A100-40GB:{NUM_GPU}",
+    gpu=f"T4:{NUM_GPU}",
     scaledown_window=15 * MINUTES,
     timeout=10 * MINUTES,
     volumes={

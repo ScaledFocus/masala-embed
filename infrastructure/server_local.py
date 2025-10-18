@@ -11,44 +11,36 @@ from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel
 
 
-# Request schema (single input only)
 class EmbeddingRequest(BaseModel):
     input: str
     model: str
 
 
-# Constants
 VLLM_BASE_URL = (
     "http://127.0.0.1:8000"  # vLLM server started by vllm_inference_local.py
 )
 VLLM_EMBEDDINGS_PATH = "/v1/embeddings"
 
-# FastAPI app with optimized JSON response
 app = FastAPI(default_response_class=ORJSONResponse)
 
 
 @app.on_event("startup")
 async def startup_event():
-    # Paths relative to this file
     base_dir = Path(__file__).resolve().parent
     setup_dir = base_dir / "setup"
     index_path = setup_dir / "dish_index.faiss"
     csv_path = setup_dir / "dish_index.csv"
 
-    # Load FAISS index and dish mapping once
     app.state.faiss_index = faiss.read_index(str(index_path))
-    # Optimize HNSW search parameters
     index = app.state.faiss_index
-    if hasattr(index, "hnsw"):
-        index.hnsw.efSearch = 32
 
     # Single-column CSV, may contain a header row "dish"
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.reader(f)
         rows = [row for row in reader if row]
-        if rows and rows[0][0].strip().lower() == "dish":
-            rows = rows[1:]
-        app.state.dishes: list[str] = [row[0] for row in rows]
+        # remove header row
+        rows = rows[1:]
+        app.state.dishes = [row[0] for row in rows]
 
     # Preallocate reusable query buffer
     dim = index.d
@@ -98,6 +90,4 @@ async def get_top_dish(req: EmbeddingRequest):
 
 
 if __name__ == "__main__":
-    # Example: uvicorn infrastructure.server_local:app --host 0.0.0.0 --port 8080
-
     uvicorn.run("server_local:app", host="0.0.0.0", port=8080, reload=False)

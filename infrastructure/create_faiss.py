@@ -5,37 +5,18 @@ import faiss
 import httpx
 import numpy as np
 
-"""
-Build FAISS index from embeddings fetched via local vLLM server.
-
-- Reads dish names from dish_name.csv (one dish per line, no header)
-- Queries local vLLM embeddings server in batches to get embeddings
-- L2-normalizes all embeddings
-- Builds an HNSW index with inner-product metric (cosine similarity)
-- Writes index to dish_index.faiss
-- Writes dish list to dish_index.csv (single column, no header)
-"""
-
-# Constants
 MODEL_NAME = "Qwen/Qwen3-Embedding-0.6B"
 VLLM_URL = "http://127.0.0.1:8000/v1/embeddings"
-BATCH_SIZE = 256  # Tune based on GPU/CPU memory and vLLM server throughput
+BATCH_SIZE = 256
 
-# HNSW parameters
 HNSW_M = 32
 HNSW_EF_CONSTRUCTION = 200
 HNSW_EF_SEARCH = 32
 
 
 def load_dishes(path: Path) -> list[str]:
-    # dish_name.csv: one dish per line, no header
-    lines: list[str] = []
     with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            name = line.strip()
-            if name:
-                lines.append(name)
-    return lines
+        return [line.strip() for line in f]
 
 
 def fetch_batch_embeddings(client: httpx.Client, texts: list[str]) -> np.ndarray:
@@ -58,10 +39,9 @@ def main():
     if n == 0:
         raise RuntimeError("No dishes found in dish_name.csv")
 
-    # HTTP client with keep-alive
     client = httpx.Client()
 
-    # First batch to determine embedding dimension
+    # Get dimensions from first batch
     first_batch = dishes[: min(BATCH_SIZE, n)]
     first_emb = fetch_batch_embeddings(client, first_batch)
     dim = first_emb.shape[1]
@@ -88,16 +68,13 @@ def main():
     index.hnsw.efSearch = HNSW_EF_SEARCH
     index.add(embeddings)
 
-    # Persist index
     faiss.write_index(index, str(index_out_path))
 
-    # Persist dish list as single-column CSV with no header
     with dish_index_csv_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
         for d in dishes:
             writer.writerow([d])
 
-    # Cleanup HTTP client
     client.close()
 
 

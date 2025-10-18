@@ -1,49 +1,87 @@
-# Inference
+# Infrastructure
 
-## Modal
+Supports both local and Modal deployments.
 
-1. Sync dependencies using `uv`: `uv sync`
-2. Setup Modal (if not already done): `uv run modal setup`
-3. Deploy the app: `modal deploy vllm_inference_modal.py`
+## Local Setup (GPU)
 
-## Local
+NOTE: `cd` into infrastructure first
 
-1. Sync dependencies using `uv`: `uv sync`
-2. Start the vLLM server: `uv run vllm_inference_local.py`
+1. Install dependencies
 
-## Usage Examples
+- uv sync
 
-### Single Sentence
+2. Prepare dish names
+
+- Ensure the file infrastructure/setup/dish_name.csv exists (single column, no header).
+
+3. Start the local vLLM embedding server
+
+- From the infrastructure directory:
+    - uv run vllm_inference_local.py
+- This exposes embeddings at: http://127.0.0.1:8000/v1/embeddings
+
+4. Build the FAISS index using vLLM embeddings
+
+- From the infrastructure directory:
+    - uv run create_faiss.py
+- This writes dish_index.faiss and dish_index.csv to the infrastructure directory.
+- Move them into setup/ so the servers can load them:
+    - mv dish_index.faiss setup/dish_index.faiss
+    - mv dish_index.csv setup/dish_index.csv
+
+5. Start the local FastAPI server
+
+- From the infrastructure directory:
+    - uv run server_local.py
+
+6. Test locally
 
 ```
-curl -X POST "https://<modal_workspace|localhost>--qwen3-embedding-inference-serve.modal.run/v1/embeddings" \
+curl -X POST "http://0.0.0.0:8080/v1/embeddings" \
   -H "Content-Type: application/json" \
   -d '{
-    "input": "Need a cheesy, rainy-day dosa",
+    "input": "Need an italian dish",
     "model": "Qwen/Qwen3-Embedding-0.6B"
   }'
 ```
 
+## Modal Setup
+
+Prereqs
+
+- You must already have your vLLM embedding server deployed on Modal (as per the existing vllm_inference_modal.py in your workspace). Note the full embeddings URL, for example:
+    - https://<your_workspace>--qwen3-embedding-inference-serve.modal.run/v1/embeddings
+
+1. Install dependencies and Modal CLI
+
+- uv sync
+- Initialize Modal in your environment (one-time):
+    - uv run modal setup
+
+2. Upload artifacts to a Modal Volume
+
+- The server expects the following in the Modal Volume named masala-embed-setup at /setup:
+    - /setup/dish_index.faiss
+    - /setup/dish_index.csv
+- From the infrastructure directory, after generating the files locally:
+    - modal run infrastructure.create_embeddings_modal::main
+        - Uploads setup/dish_index.csv to the Volume
+    - modal run infrastructure.create_faiss_modal::main
+        - Uploads setup/dish_index.faiss to the Volume
+
+3. Deploy the FastAPI server on Modal
+
+- The server needs the vLLM embeddings URL via environment variable VLLM_URL.
+- Deploy:
+    - modal deploy infrastructure/server_modal.py
+
+4. Test on Modal
+
 ```
-curl -X POST "http://0.0.0.0:8000/v1/embeddings" \
+curl -X POST "https://<your_workspace>--masala-embed-server-modal-fastapi-app.modal.run/v1/embeddings" \
   -H "Content-Type: application/json" \
   -d '{
-    "input": "Need a cheesy, rainy-day dosa",
-    "model": "Qwen/Qwen3-Embedding-0.6B"
-  }'
-```
-
-## List of Sentences
-
-```
-curl -X POST "https://<modal_workspace|localhost>--qwen3-embedding-inference-serve.modal.run/v1/embeddings" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": [
-      "Need a cheesy, rainy-day dosa",
-      "Crispy dosa stuffed with spiced potatoes and melted cheese",
-      "Fragrant biryani with tender lamb and aromatic basmati rice"
-    ],
+    "input": "Need some italian dish",
     "model": "Qwen/Qwen3-Embedding-0.6B"
   }'
 ```
