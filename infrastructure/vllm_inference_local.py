@@ -2,7 +2,7 @@ import os
 import subprocess
 import sys
 
-MODEL_NAME = "Qwen/Qwen3-Embedding-0.6b"
+MODEL_NAME = "Qwen/Qwen3-Embedding-0.6B"
 MODEL_REVISION = "c54f2e6e80b2d7b7de06f51cec4959f6b3e03418"
 VLLM_PORT = 8000
 HOST = "0.0.0.0"

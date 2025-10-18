@@ -24,6 +24,15 @@ curl -X POST "https://<modal_workspace|localhost>--qwen3-embedding-inference-ser
   }'
 ```
 
+```
+curl -X POST "http://0.0.0.0:8000/v1/embeddings" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "Need a cheesy, rainy-day dosa",
+    "model": "Qwen/Qwen3-Embedding-0.6B"
+  }'
+```
+
 ## List of Sentences
 
 ```
