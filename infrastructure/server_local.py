@@ -33,13 +33,13 @@ async def startup_event():
 
     app.state.faiss_index = faiss.read_index(str(index_path))
     index = app.state.faiss_index
+    if hasattr(index, "hnsw"):
+        index.hnsw.efSearch = 32
 
-    # Single-column CSV, may contain a header row "dish"
+    # Single-column CSV with no header
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.reader(f)
         rows = [row for row in reader if row]
-        # remove header row
-        rows = rows[1:]
         app.state.dishes = [row[0] for row in rows]
 
     # Preallocate reusable query buffer

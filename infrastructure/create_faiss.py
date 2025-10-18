@@ -16,7 +16,7 @@ HNSW_EF_SEARCH = 32
 
 def load_dishes(path: Path) -> list[str]:
     with path.open("r", encoding="utf-8") as f:
-        return [line.strip() for line in f]
+        return [line.strip() for line in f if line.strip()]
 
 
 def fetch_batch_embeddings(client: httpx.Client, texts: list[str]) -> np.ndarray:
@@ -30,9 +30,9 @@ def fetch_batch_embeddings(client: httpx.Client, texts: list[str]) -> np.ndarray
 
 def main():
     base_dir = Path(__file__).resolve().parent
-    dish_name_path = base_dir / "dish_name.csv"
-    index_out_path = base_dir / "dish_index.faiss"
-    dish_index_csv_path = base_dir / "dish_index.csv"
+    dish_name_path = base_dir / "setup" / "dish_name.csv"
+    index_out_path = base_dir / "setup" / "dish_index.faiss"
+    dish_index_csv_path = base_dir / "setup" / "dish_index.csv"
 
     dishes = load_dishes(dish_name_path)
     n = len(dishes)

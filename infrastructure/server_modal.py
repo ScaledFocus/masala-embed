@@ -10,13 +10,12 @@ from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel
 
-APP_NAME = "masala-embed"
+APP_NAME = "masala-embed-server-modal"
 VOLUME_NAME = "masala-embed-setup"
 
 SETUP_DIR = "/vol/setup"
 INDEX_PATH = f"{SETUP_DIR}/dish_index.faiss"
 CSV_PATH = f"{SETUP_DIR}/dish_index.csv"
-VLLM_URL = "https://<name>.modal.run/v1/embeddings"
 
 # Dependency image for the Modal app
 image = modal.Image.debian_slim().pip_install(
@@ -42,7 +41,9 @@ class EmbeddingRequest(BaseModel):
     volumes={"/vol": vol},
     timeout=600,
     gpu="T4",
-    env={"VLLM_URL": VLLM_URL},
+    env={
+        "VLLM_URL": "https://scaledfocus--qwen3-embedding-inference-serve.modal.run/v1/embeddings"
+    },
 )
 @modal.asgi_app()
 def fastapi_app():
@@ -81,7 +82,7 @@ def fastapi_app():
             timeout=httpx.Timeout(connect=1.0, read=120.0, write=10.0, pool=120.0),
             headers={"Content-Type": "application/json"},
         )
-        # Expect fully-qualified URL like: https://<workspace>--qwen3-embedding-inference-serve.modal.run/v1/embeddings
+        # Expect fully-qualified URL like: https://scaledfocus--qwen3-embedding-inference-serve.modal.run/v1/embeddings
         state["vllm_url"] = os.environ["VLLM_URL"]
 
     @api.on_event("shutdown")
