@@ -1,6 +1,4 @@
-import os
 from pathlib import Path
-from typing import List, Tuple
 
 import modal
 
@@ -29,7 +27,7 @@ def main():
     assert src_csv.exists(), f"Missing required CSV: {src_csv}"
 
     # Build upload list
-    uploads: List[Tuple[Path, str]] = [
+    uploads: list[tuple[Path, str]] = [
         (src_csv, f"{REMOTE_DIR}/{CSV_FILENAME}"),
     ]
 
