@@ -9,3 +9,9 @@ progress_state.pkl
 test.py
 venv
 joined_result.csv
+mm_food_metadata.pkl
+mm_food_index.faiss
+merged_food_dataset_faiss.csv
+a2m_index.faiss
+a2m_metadata.pkl
+high_similarity_matches.csv

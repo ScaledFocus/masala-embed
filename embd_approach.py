@@ -101,6 +101,7 @@ def create_faiss_food_merger():
             merged_row['above_threshold'] = similarity_score >= threshold
             
             final_rows.append(merged_row)
+            
     
     print(f"Total matches processed: {len(final_rows)}")
     print(f"Matches above threshold {threshold}: {matches_above_threshold}")
