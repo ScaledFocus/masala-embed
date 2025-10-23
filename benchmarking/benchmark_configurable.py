@@ -16,13 +16,13 @@ MODES = {
         "target_url": "http://127.0.0.1:8080/v1/embeddings",
         "concurrency": 100,
         "outfile": "results_local.txt",
-        "stages": [(20, 5), (40, 20), (60, 50), (60, 100)],
+        "stages": [(20, 5), (40, 20), (60, 50)],
     },
     "server": {
         "target_url": "https://scaledfocus--masala-embed-server-modal-fastapi-app.modal.run/v1/embeddings",
         "concurrency": 100,
         "outfile": "results_server.txt",
-        "stages": [(20, 5), (40, 20), (60, 50), (60, 100)],
+        "stages": [(20, 5), (40, 20), (60, 50)],
     },
 }
 
@@ -428,4 +428,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
