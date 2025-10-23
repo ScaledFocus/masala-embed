@@ -40,12 +40,13 @@ class EmbeddingRequest(BaseModel):
     image=image,
     volumes={"/vol": vol},
     timeout=600,
-    gpu="T4",
+    # gpu="T4",
     env={
         "VLLM_URL": "https://scaledfocus--qwen3-embedding-inference-serve.modal.run/v1/embeddings"
     },
 )
 @modal.asgi_app()
+@modal.concurrent(max_inputs=100)
 def fastapi_app():
     api = FastAPI(default_response_class=ORJSONResponse)
 
