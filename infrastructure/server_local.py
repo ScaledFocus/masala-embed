@@ -6,7 +6,7 @@ import httpx
 import numpy as np
 import orjson
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel
 
@@ -63,28 +63,43 @@ async def shutdown_event():
 
 
 @app.post("/v1/embeddings")
-async def get_top_dish(req: EmbeddingRequest):
-    # Forward request to local vLLM embedding server
+async def get_top_dish(req: EmbeddingRequest, response: Response):
+    import time
+
+    t0 = time.perf_counter()
     client: httpx.AsyncClient = app.state.http_client
+    t_vllm_start = time.perf_counter()
     vllm_resp = await client.post(VLLM_EMBEDDINGS_PATH, json=req.dict())
     vllm_json = orjson.loads(vllm_resp.content)
+    t_vllm_end = time.perf_counter()
 
-    # Extract single embedding
     embedding = vllm_json["data"][0]["embedding"]
 
-    # Prepare normalized query in preallocated buffer
     qb = app.state.query_buf
     qb[0, :] = np.asarray(embedding, dtype="float32")
-    faiss.normalize_L2(qb)
 
-    # Nearest neighbor search (k=1)
+    t_norm_start = time.perf_counter()
+    faiss.normalize_L2(qb)
+    t_norm_end = time.perf_counter()
+
     index = app.state.faiss_index
+    t_search_start = time.perf_counter()
     distances, indices = index.search(qb, 1)
+    t_search_end = time.perf_counter()
     top_idx = int(indices[0][0])
 
-    # Map to dish name
     dishes: list[str] = app.state.dishes
     dish_name = dishes[top_idx]
+
+    vllm_ms = (t_vllm_end - t_vllm_start) * 1000.0
+    normalize_ms = (t_norm_end - t_norm_start) * 1000.0
+    search_ms = (t_search_end - t_search_start) * 1000.0
+    server_ms = (time.perf_counter() - t0) * 1000.0
+
+    response.headers["X-Timing-vLLM"] = f"{vllm_ms:.3f}"
+    response.headers["X-Timing-Normalize"] = f"{normalize_ms:.3f}"
+    response.headers["X-Timing-Search"] = f"{search_ms:.3f}"
+    response.headers["X-Timing-Server"] = f"{server_ms:.3f}"
 
     return {"dish": dish_name}
 

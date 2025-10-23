@@ -1,12 +1,13 @@
 import csv
 import os
+import time
 
 import faiss
 import httpx
 import modal
 import numpy as np
 import orjson
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel
 
@@ -92,12 +93,17 @@ def fastapi_app():
         await client.aclose()
 
     @api.post("/v1/embeddings")
-    async def get_top_dish(req: EmbeddingRequest):
+    async def get_top_dish(req: EmbeddingRequest, response: Response):
+        t0 = time.perf_counter()
         # Forward request to vLLM server
         client: httpx.AsyncClient = state["http_client"]
         vllm_url: str = state["vllm_url"]
+
+        t_vllm_start = time.perf_counter()
         vllm_resp = await client.post(vllm_url, json=req.dict())
+        # Include JSON parsing time in vLLM timing
         vllm_json = orjson.loads(vllm_resp.content)
+        t_vllm_end = time.perf_counter()
 
         # Extract embedding
         embedding = vllm_json["data"][0]["embedding"]
@@ -105,15 +111,33 @@ def fastapi_app():
         # Prepare normalized query in preallocated buffer
         qb = state["query_buf"]
         qb[0, :] = np.asarray(embedding, dtype="float32")
+
+        t_norm_start = time.perf_counter()
         faiss.normalize_L2(qb)
+        t_norm_end = time.perf_counter()
 
         # Search top-1
         index = state["faiss_index"]
+        t_search_start = time.perf_counter()
         _, indices = index.search(qb, 1)
+        t_search_end = time.perf_counter()
         top_idx = int(indices[0][0])
 
         # Map index to dish name
         dish_name = state["dishes"][top_idx]
+
+        # Compute timings in milliseconds
+        vllm_ms = (t_vllm_end - t_vllm_start) * 1000.0
+        normalize_ms = (t_norm_end - t_norm_start) * 1000.0
+        search_ms = (t_search_end - t_search_start) * 1000.0
+        server_ms = (time.perf_counter() - t0) * 1000.0
+
+        # Set timing headers for observability
+        response.headers["X-Timing-vLLM"] = f"{vllm_ms:.3f}"
+        response.headers["X-Timing-Normalize"] = f"{normalize_ms:.3f}"
+        response.headers["X-Timing-Search"] = f"{search_ms:.3f}"
+        response.headers["X-Timing-Server"] = f"{server_ms:.3f}"
+
         return {"dish": dish_name}
 
     return api
