@@ -24,4 +24,6 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.uv.workspace]
-members = []
+members = [
+    "finetune",
+]
