@@ -16,27 +16,31 @@ class EmbeddingBenchmark:
 
         self.df = pd.read_csv(benchmark_csv)
 
-    def get_embeddings(self, text=None, image_path=None):
+    def get_embeddings(self, text: str | None = None, image_path: str | None = None):
         with torch.no_grad():
-            if text and image_path:
+            if text is not None and image_path is not None:
+                assert image_path is not None
                 image = Image.open(image_path).convert("RGB")
                 inputs = self.processor(
                     text=text, images=image, return_tensors="pt", padding=True
                 )
-            elif text:
+            elif text is not None:
                 inputs = self.processor(text=text, return_tensors="pt", padding=True)
-            elif image_path:
+            elif image_path is not None:
+                assert image_path is not None
                 image = Image.open(image_path).convert("RGB")
                 inputs = self.processor(images=image, return_tensors="pt")
+            else:
+                raise ValueError("Either text or image_path must be provided")
 
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
             outputs = self.model(**inputs)
 
-            if text and image_path:
+            if text is not None and image_path is not None:
                 text_embed = outputs.text_embeds.cpu().numpy()
                 image_embed = outputs.image_embeds.cpu().numpy()
                 return text_embed, image_embed
-            elif text:
+            elif text is not None:
                 return outputs.text_embeds.cpu().numpy()
             else:
                 return outputs.image_embeds.cpu().numpy()

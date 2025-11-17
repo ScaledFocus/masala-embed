@@ -1,81 +1,88 @@
-import csv
+import shutil
 from pathlib import Path
 
 import faiss
-import httpx
 import numpy as np
+from vllm import LLM
 
-MODEL_NAME = "Qwen/Qwen3-Embedding-0.6B"
-VLLM_URL = "http://127.0.0.1:8000/v1/embeddings"
-BATCH_SIZE = 256
+MODEL = "openai/clip-vit-base-patch32"
+# MODEL = "google/siglip-base-patch16-224"
+BATCH_SIZE = 512
 
+# HNSW params (good defaults; tune for your dataset/latency)
 HNSW_M = 32
 HNSW_EF_CONSTRUCTION = 200
 HNSW_EF_SEARCH = 32
 
 
-def load_dishes(path: Path) -> list[str]:
+def iter_lines(path: Path, batch_size: int):
+    batch = []
     with path.open("r", encoding="utf-8") as f:
-        return [line.strip() for line in f if line.strip()]
+        for line in f:
+            s = line.strip()
+            if not s:
+                continue
+            batch.append(s)
+            if len(batch) == batch_size:
+                yield batch
+                batch = []
+    if batch:
+        yield batch
 
 
-def fetch_batch_embeddings(client: httpx.Client, texts: list[str]) -> np.ndarray:
-    payload = {"input": texts, "model": MODEL_NAME}
-    res = client.post(VLLM_URL, json=payload)
-    data = res.json()["data"]
-    # data is a list of objects each having an "embedding" list
-    emb = np.asarray([d["embedding"] for d in data], dtype="float32")
-    return emb
+def embed_batch(llm: LLM, texts: list[str]) -> np.ndarray:
+    out = llm.embed(texts)  # same API as server.py
+    # out[i].outputs.embedding -> list[float]
+    embs = [np.asarray(o.outputs.embedding, dtype="float32") for o in out]
+    return np.stack(embs, axis=0)  # (batch, dim)
 
 
 def main():
-    base_dir = Path(__file__).resolve().parent
-    dish_name_path = base_dir / "setup" / "dish_name.csv"
-    index_out_path = base_dir / "setup" / "dish_index.faiss"
-    dish_index_csv_path = base_dir / "setup" / "dish_index.csv"
+    base = Path(__file__).resolve().parent
+    dish_name_path = base / "setup" / "dish_name.csv"
+    index_out_path = base / "setup" / "dish_index.faiss"
+    dish_index_csv_path = base / "setup" / "dish_index.csv"
 
-    dishes = load_dishes(dish_name_path)
-    n = len(dishes)
-    if n == 0:
+    # 0) Make sure the server will read the same order
+    # If dish_name.csv already has one name per line, just copy it.
+    shutil.copyfile(dish_name_path, dish_index_csv_path)
+
+    # 1) Init model
+    llm = LLM(
+        model=MODEL,
+        task="embed",
+        tokenizer_mode="auto",
+        gpu_memory_utilization=0.5,
+    )
+
+    # 2) Prime on first batch to get dimension and build index
+    gen = iter_lines(dish_name_path, BATCH_SIZE)
+    first_batch = next(gen, None)
+    if not first_batch:
         raise RuntimeError("No dishes found in dish_name.csv")
 
-    client = httpx.Client()
-
-    # Get dimensions from first batch
-    first_batch = dishes[: min(BATCH_SIZE, n)]
-    first_emb = fetch_batch_embeddings(client, first_batch)
+    first_emb = embed_batch(llm, first_batch)  # (b, dim)
     dim = first_emb.shape[1]
 
-    # Preallocate full embedding matrix
-    embeddings = np.empty((n, dim), dtype="float32")
-    embeddings[: first_emb.shape[0], :] = first_emb
+    # Normalize (cosine via inner product)
+    faiss.normalize_L2(first_emb)
 
-    # Process remaining batches
-    offset = first_emb.shape[0]
-    while offset < n:
-        end = min(offset + BATCH_SIZE, n)
-        batch = dishes[offset:end]
-        emb = fetch_batch_embeddings(client, batch)
-        embeddings[offset:end, :] = emb
-        offset = end
-
-    # Normalize embeddings for cosine similarity
-    faiss.normalize_L2(embeddings)
-
-    # Build HNSW index with inner product metric (equivalent to cosine on unit vectors)
+    # HNSW index
     index = faiss.index_factory(dim, f"HNSW{HNSW_M}", faiss.METRIC_INNER_PRODUCT)
     index.hnsw.efConstruction = HNSW_EF_CONSTRUCTION
     index.hnsw.efSearch = HNSW_EF_SEARCH
-    index.add(embeddings)
 
+    # Add first batch
+    index.add(first_emb)
+
+    # 3) Stream remaining batches: embed -> normalize -> add
+    for batch in gen:
+        emb = embed_batch(llm, batch)
+        faiss.normalize_L2(emb)
+        index.add(emb)
+
+    # 4) Persist index
     faiss.write_index(index, str(index_out_path))
-
-    with dish_index_csv_path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.writer(f)
-        for d in dishes:
-            writer.writerow([d])
-
-    client.close()
 
 
 if __name__ == "__main__":

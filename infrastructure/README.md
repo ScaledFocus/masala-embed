@@ -34,11 +34,10 @@ NOTE: `cd` into infrastructure first
 6. Test locally
 
 ```
-curl -X POST "http://0.0.0.0:8080/v1/embeddings" \
+curl -X POST "http://127.0.0.1:8000/v1/dish" \
   -H "Content-Type: application/json" \
   -d '{
-    "input": "Need an cheesy dish",
-    "model": "Qwen/Qwen3-Embedding-0.6B"
+    "text": "Need a french dish"
   }'
 ```
 
