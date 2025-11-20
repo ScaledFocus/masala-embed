@@ -1,4 +1,14 @@
+import os
+
 import pandas as pd
+
+DATASET_CSV_NAME = os.getenv("DATASET_CSV_NAME")
+TRAIN_CSV_NAME = os.getenv("TRAIN_CSV_NAME")
+TEST_CSV_NAME = os.getenv("TEST_CSV_NAME")
+TEST_RATIO_ENV = os.getenv("TEST_RATIO")
+if TEST_RATIO_ENV is None:
+    raise ValueError("TEST_RATIO environment variable is not set")
+TEST_RATIO = float(TEST_RATIO_ENV)
 
 
 def create_test_split(input_csv, train_csv, test_csv, test_ratio=0.2):
@@ -25,13 +35,8 @@ def create_test_split(input_csv, train_csv, test_csv, test_ratio=0.2):
     train_df.to_csv(train_csv, index=False)
     test_df.to_csv(test_csv, index=False)
 
-    print(f"Total rows: {len(df)}")
-    print(f"Train rows: {len(train_df)} ({len(train_df) / len(df) * 100:.1f}%)")
-    print(f"Test rows: {len(test_df)} ({len(test_df) / len(df) * 100:.1f}%)")
-    print(f"Total dishes: {len(dishes)}")
-    print(f"Train saved to: {train_csv}")
-    print(f"Test saved to: {test_csv}")
-
 
 if __name__ == "__main__":
-    create_test_split("finetuning_dataset.csv", "train.csv", "test.csv", test_ratio=0.2)
+    create_test_split(
+        DATASET_CSV_NAME, TRAIN_CSV_NAME, TEST_CSV_NAME, test_ratio=TEST_RATIO
+    )
