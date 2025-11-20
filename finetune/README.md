@@ -1,12 +1,22 @@
 # Finetune
 
+**CSV Format:** `text,image,dish_name`
+
+Each row can have:
+
+- Both `text` and `image` (multimodal)
+- Only `text` (text-only)
+- Only `image` (image-only)
+
+Empty or NaN values are handled automatically.
+
 ## Download Images
 
 ```bash
 INPUT_CSV=dataset.csv
 OUTPUT_CSV=dataset.csv
 IMAGE_DIR=images
-python finetune/download_images.py
+python download_images.py
 ```
 
 ### Environment Variables
@@ -22,7 +32,7 @@ DATASET_CSV_NAME=dataset.csv
 TRAIN_CSV_NAME=train.csv
 TEST_CSV_NAME=test.csv
 TEST_RATIO=0.2
-python finetune/create_test_split.py
+python create_test_split.py
 ```
 
 ### Environment Variables
@@ -43,7 +53,7 @@ LEARNING_RATE=5e-6
 NUM_EPOCHS=10
 WARMUP_RATIO=0.1
 DEVICE=cuda
-python finetune/train.py
+python train.py
 ```
 
 ### Environment Variables
@@ -64,7 +74,7 @@ MODEL_PATH=finetuned_siglip
 BENCHMARK_CSV=test.csv
 OUTPUT_CSV=evaluation_results.csv
 DEVICE=cuda
-python finetune/evaluate.py
+python evaluate.py
 ```
 
 ### Environment Variables
@@ -73,3 +83,9 @@ python finetune/evaluate.py
 2. BENCHMARK_CSV: Path to the benchmark CSV file (default: `test.csv`).
 3. OUTPUT_CSV: Path to the output CSV file (default: `evaluation_results.csv`).
 4. DEVICE: Device to use for evaluation (default: `cuda` if available, else `cpu`).
+
+## Dataset must have the following columns:
+
+1. `text`: Text to generate image from.
+2. `image`: Path to the image file.
+3. `dish_name`: Label of the image.

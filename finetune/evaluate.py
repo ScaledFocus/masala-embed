@@ -14,49 +14,47 @@ OUTPUT_CSV = os.getenv("OUTPUT_CSV", "evaluation_results.csv")
 
 
 def get_embeddings(model, processor, device, text=None, image_path=None):
+    """Get embeddings for text and/or image with flexible modality support."""
     with torch.no_grad():
-        if text is not None and image_path is not None:
+        # Handle empty/None text
+        has_text = text is not None and str(text).strip()
+        has_image = image_path is not None and str(image_path).strip()
+
+        if has_text and has_image:
+            # Both text and image
             image = Image.open(image_path).convert("RGB")
             inputs = processor(
                 text=text,
                 images=image,
                 return_tensors="pt",
-                padding=True
+                padding=True,
+                truncation=True
             )
             inputs = {k: v.to(device) for k, v in inputs.items()}
             outputs = model(**inputs)
             text_embed = outputs.text_embeds.cpu().numpy()
             image_embed = outputs.image_embeds.cpu().numpy()
             text_embed = text_embed / np.linalg.norm(text_embed, axis=1, keepdims=True)
-            image_embed = image_embed / np.linalg.norm(
-                image_embed,
-                axis=1,
-                keepdims=True
-            )
+            image_embed = image_embed / np.linalg.norm(image_embed, axis=1, keepdims=True)
             combined_embed = (text_embed + image_embed) / 2.0
-            combined_embed = combined_embed / np.linalg.norm(
-                combined_embed,
-                axis=1,
-                keepdims=True
-            )
+            combined_embed = combined_embed / np.linalg.norm(combined_embed, axis=1, keepdims=True)
             return combined_embed
-        elif text is not None:
-            inputs = processor(text=text, return_tensors="pt", padding=True)
+        elif has_text:
+            # Text only
+            inputs = processor(text=text, return_tensors="pt", padding=True, truncation=True)
             inputs = {k: v.to(device) for k, v in inputs.items()}
             outputs = model(**inputs)
             text_embed = outputs.text_embeds.cpu().numpy()
             text_embed = text_embed / np.linalg.norm(text_embed, axis=1, keepdims=True)
             return text_embed
-        elif image_path is not None:
+        elif has_image:
+            # Image only
             image = Image.open(image_path).convert("RGB")
             inputs = processor(images=image, return_tensors="pt")
             inputs = {k: v.to(device) for k, v in inputs.items()}
             outputs = model(**inputs)
             image_embed = outputs.image_embeds.cpu().numpy()
-            image_embed = image_embed / np.linalg.norm(
-                image_embed, axis=1,
-                keepdims=True
-            )
+            image_embed = image_embed / np.linalg.norm(image_embed, axis=1, keepdims=True)
             return image_embed
         else:
             raise ValueError("Either text or image_path must be provided")
@@ -94,9 +92,14 @@ def evaluate_model(model_path, benchmark_csv, device, output_csv):
     dish_embeddings = {}
     for dish_name in df["dish_name"].unique():
         dish_rows = df[df["dish_name"] == dish_name]
-        dish_image = dish_rows.iloc[0]["image"]
+        dish_row = dish_rows.iloc[0]
+
+        # Extract text and image, handling possible NaN/empty values
+        dish_text = str(dish_row["text"]).strip() if pd.notna(dish_row["text"]) else None
+        dish_image = str(dish_row["image"]).strip() if pd.notna(dish_row["image"]) else None
+
         dish_embeddings[dish_name] = get_embeddings(
-            model, processor, device, image_path=dish_image
+            model, processor, device, text=dish_text, image_path=dish_image
         )
 
     dish_names = list(dish_embeddings.keys())
@@ -108,9 +111,14 @@ def evaluate_model(model_path, benchmark_csv, device, output_csv):
     total_queries = 0
 
     for idx, row in df.iterrows():
-        query_text = str(row["query"]).strip()
-        query_image = str(row["image"])
+        # Extract text and image, handling possible NaN/empty values
+        query_text = str(row["text"]).strip() if pd.notna(row["text"]) else None
+        query_image = str(row["image"]).strip() if pd.notna(row["image"]) else None
         true_dish = str(row["dish_name"])
+
+        # Skip if both text and image are missing
+        if not query_text and not query_image:
+            continue
 
         query_embed = get_embeddings(
             model, processor, device, text=query_text, image_path=query_image

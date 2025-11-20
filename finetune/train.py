@@ -29,17 +29,92 @@ class ImageTextDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        image = Image.open(row["image"]).convert("RGB")
-        text = str(row["query"]).strip()
 
-        inputs = self.processor(
-            text=text,
-            images=image,
+        # Handle flexible modalities
+        has_text = pd.notna(row["text"]) and str(row["text"]).strip()
+        has_image = pd.notna(row["image"]) and str(row["image"]).strip()
+
+        if not has_text and not has_image:
+            raise ValueError(f"Row {idx} has neither text nor image")
+
+        if has_text and has_image:
+            # Both modalities
+            image = Image.open(row["image"]).convert("RGB")
+            text = str(row["text"]).strip()
+            inputs = self.processor(
+                text=text,
+                images=image,
+                return_tensors="pt",
+                truncation=True,
+            )
+        elif has_text:
+            # Text only
+            text = str(row["text"]).strip()
+            inputs = self.processor(
+                text=text,
+                return_tensors="pt",
+                truncation=True,
+            )
+        else:
+            # Image only
+            image = Image.open(row["image"]).convert("RGB")
+            inputs = self.processor(
+                images=image,
+                return_tensors="pt",
+            )
+
+        return {k: v.squeeze(0) for k, v in inputs.items()}
+
+
+def collate_fn(batch, processor):
+    """Custom collate function to handle variable length text and flexible modalities."""
+    # Separate items by modality
+    texts = []
+    images = []
+    has_text_list = []
+    has_image_list = []
+
+    for item in batch:
+        has_text = 'input_ids' in item
+        has_image = 'pixel_values' in item
+        has_text_list.append(has_text)
+        has_image_list.append(has_image)
+
+        if has_text:
+            texts.append(processor.tokenizer.decode(item['input_ids'], skip_special_tokens=True))
+        if has_image:
+            images.append(item['pixel_values'])
+
+    # Process based on what modalities are present
+    if texts and images and all(has_text_list) and all(has_image_list):
+        # All items have both modalities
+        inputs = processor(
+            text=texts,
+            images=torch.stack(images),
             return_tensors="pt",
             padding=True,
             truncation=True,
         )
-        return {k: v.squeeze(0) for k, v in inputs.items()}
+    elif texts and not images:
+        # All items have text only
+        inputs = processor(
+            text=texts,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        )
+    elif images and not texts:
+        # All items have images only
+        inputs = processor(
+            images=torch.stack(images),
+            return_tensors="pt",
+        )
+    else:
+        # Mixed modalities - process separately and combine
+        # This shouldn't happen with proper batching, but handle it
+        raise ValueError("Batch contains mixed modalities - ensure consistent data per batch")
+
+    return inputs
 
 
 def sigmoid_loss(image_embeds, text_embeds):
@@ -90,7 +165,8 @@ def train():
         train_dataset,
         batch_size=BATCH_SIZE,
         shuffle=True,
-        num_workers=0  # Set to 0 to avoid multiprocessing issues with images
+        num_workers=0,  # Set to 0 to avoid multiprocessing issues with images
+        collate_fn=lambda batch: collate_fn(batch, processor)
     )
 
     # Setup optimizer and scheduler
