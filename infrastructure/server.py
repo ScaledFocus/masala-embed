@@ -16,8 +16,8 @@ from vllm import LLM
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MODEL = "openai/clip-vit-base-patch32"
-# MODEL = "google/siglip-base-patch16-224"
+# MODEL = "openai/clip-vit-base-patch32"
+MODEL = "google/siglip2-base-patch16-224"
 
 
 class DishRequest(BaseModel):
@@ -51,7 +51,9 @@ app = FastAPI(default_response_class=ORJSONResponse, lifespan=lifespan)
 
 def _embed_text(model: LLM, text: str) -> np.ndarray:
     out = model.embed([text])
-    return np.asarray(out[0].outputs.embedding, dtype="float32")
+    embed = np.asarray(out[0].outputs.embedding, dtype="float32")
+    embed = embed / np.linalg.norm(embed)
+    return embed
 
 
 def _embed_image(model: LLM, url: str) -> np.ndarray:
@@ -59,7 +61,9 @@ def _embed_image(model: LLM, url: str) -> np.ndarray:
     r.raise_for_status()
     img = Image.open(io.BytesIO(r.content)).convert("RGB")
     out = model.embed([img])
-    return np.asarray(out[0].outputs.embedding, dtype="float32")
+    embed = np.asarray(out[0].outputs.embedding, dtype="float32")
+    embed = embed / np.linalg.norm(embed)
+    return embed
 
 
 @app.post("/v1/dish")
@@ -70,9 +74,13 @@ def get_dish(req: DishRequest) -> DishResponse:
     if req.image:
         parts.append(_embed_image(app.state.model, str(req.image)))
 
-    query = parts[0] if len(parts) == 1 else (parts[0] + parts[1]) / 2.0
+    if len(parts) == 1:
+        query = parts[0]
+    else:
+        query = (parts[0] + parts[1]) / 2.0
+        query = query / np.linalg.norm(query)
+
     query = query[None, :]
-    faiss.normalize_L2(query)
 
     D, I = app.state.faiss_index.search(query, k=5)  # noqa: E741
     logger.info(f"Query: text={req.text}, image={req.image}")

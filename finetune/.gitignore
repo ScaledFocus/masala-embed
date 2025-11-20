@@ -1,4 +1,2 @@
 images/
-train.csv
-test.csv
-finetuning_dataset.csv
+*.csv

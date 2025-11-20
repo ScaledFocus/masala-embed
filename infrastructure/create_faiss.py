@@ -5,8 +5,8 @@ import faiss
 import numpy as np
 from vllm import LLM
 
-MODEL = "openai/clip-vit-base-patch32"
-# MODEL = "google/siglip-base-patch16-224"
+# MODEL = "openai/clip-vit-base-patch32"
+MODEL = "google/siglip2-base-patch16-224"
 BATCH_SIZE = 512
 
 # HNSW params (good defaults; tune for your dataset/latency)

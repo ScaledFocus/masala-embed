@@ -37,7 +37,8 @@ NOTE: `cd` into infrastructure first
 curl -X POST "http://127.0.0.1:8000/v1/dish" \
   -H "Content-Type: application/json" \
   -d '{
-    "text": "Need a french dish"
+    "text": "Need a french dish",
+    "image": "https://example.com/image.jpg"
   }'
 ```
 

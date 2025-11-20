@@ -1,5 +1,20 @@
 # Finetune
 
+## Download Images
+
+```bash
+INPUT_CSV=dataset.csv
+OUTPUT_CSV=dataset.csv
+IMAGE_DIR=images
+python finetune/download_images.py
+```
+
+### Environment Variables
+
+1. INPUT_CSV: Path to the input CSV file with image URLs (default: `dataset.csv`).
+2. OUTPUT_CSV: Path to the output CSV file with local image paths (default: `dataset.csv`).
+3. IMAGE_DIR: Directory to save downloaded images (default: `images`).
+
 ## Create Test Split
 
 ```bash
