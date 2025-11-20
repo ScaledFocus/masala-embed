@@ -1,84 +1,75 @@
 # Infrastructure
 
-Supports both local and Modal deployments.
+## vLLM Installation
 
-## Local Setup (GPU)
+Until vLLM stable supports SigLIP 2, install as follows:
 
-NOTE: `cd` into infrastructure first
-
-1. Install dependencies
-
-- uv sync
-
-2. Prepare dish names
-
-- Ensure the file infrastructure/setup/dish_name.csv exists (single column, no header).
-
-3. Start the local vLLM embedding server
-
-- From the infrastructure directory:
-    - uv run vllm_inference_local.py
-- This exposes embeddings at: http://127.0.0.1:8000/v1/embeddings
-
-4. Build the FAISS index using vLLM embeddings
-
-- From the infrastructure directory:
-    - uv run create_faiss.py
-- This writes dish_index.faiss and dish_index.csv to the setup in Infrastructure.
-
-5. Start the local FastAPI server
-
-- From the infrastructure directory:
-    - uv run server_local.py
-
-6. Test locally
-
-```
-curl -X POST "http://127.0.0.1:8000/v1/dish" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "text": "Need a french dish",
-    "image": "https://example.com/image.jpg"
-  }'
+```bash
+echo xformers > exclude.txt
+uv pip install -U vllm --extra-index-url https://wheels.vllm.ai/nightly --excludes exclude.txt
 ```
 
-## Modal Setup
+## Create FAISS Index
 
-Prereqs
+Build the FAISS index from your dataset with multimodal embeddings.
 
-- You must already have your vLLM embedding server deployed on Modal (as per the existing vllm_inference_modal.py in your workspace). Note the full embeddings URL, for example:
-    - https://scaledfocus--qwen3-embedding-inference-serve.modal.run/v1/embeddings
-
-1. Install dependencies and Modal CLI
-
-- uv sync
-- Initialize Modal in your environment (one-time):
-    - uv run modal setup
-
-2. Upload artifacts to a Modal Volume
-
-- The server expects the following in the Modal Volume named masala-embed-setup at /setup:
-    - /setup/dish_index.faiss
-    - /setup/dish_index.csv
-- From the infrastructure directory, after generating the files locally:
-    - modal run create_embeddings_modal::main
-        - Uploads setup/dish_index.csv to the Volume
-    - modal run create_faiss_modal::main
-        - Uploads setup/dish_index.faiss to the Volume
-
-3. Deploy the FastAPI server on Modal
-
-- The server needs the vLLM embeddings URL via environment variable VLLM_URL.
-- Deploy:
-    - modal deploy server_modal.py
-
-4. Test on Modal
-
+```bash
+MODEL=google/siglip2-base-patch16-224
+DATASET_CSV=dataset.csv
+BATCH_SIZE=32
+HNSW_M=32
+HNSW_EF_CONSTRUCTION=200
+HNSW_EF_SEARCH=32
+python infrastructure/create_faiss.py
 ```
-curl -X POST "https://scaledfocus--masala-embed-server-modal-fastapi-app.modal.run/v1/embeddings" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": "Need some italian dish",
-    "model": "Qwen/Qwen3-Embedding-0.6B"
-  }'
+
+### Environment Variables
+
+1. MODEL: Model to use for embeddings (default: `google/siglip2-base-patch16-224`).
+2. DATASET_CSV: Path to dataset CSV file (default: `dataset.csv`).
+3. BATCH_SIZE: Batch size for processing (default: `32`).
+4. HNSW_M: HNSW M parameter (default: `32`).
+5. HNSW_EF_CONSTRUCTION: HNSW efConstruction parameter (default: `200`).
+6. HNSW_EF_SEARCH: HNSW efSearch parameter (default: `32`).
+
+### Output
+
+- `infrastructure/setup/dish_index.faiss` - FAISS index file
+- `infrastructure/setup/dish_index.csv` - Dish names (same order as index)
+
+## Run Server
+
+Start the FastAPI server for dish retrieval.
+
+```bash
+python infrastructure/server.py
 ```
+
+### API Endpoint
+
+**POST** `/v1/dish`
+
+Request:
+
+```json
+{
+    "text": "spicy rice dish",
+    "image": "https://example.com/dish.jpg"
+}
+```
+
+Response:
+
+```json
+{
+    "dish": "Biryani"
+}
+```
+
+You can provide:
+
+- Both `text` and `image` (multimodal)
+- Only `text`
+- Only `image`
+
+At least one must be provided.
