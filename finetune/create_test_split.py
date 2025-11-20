@@ -2,13 +2,10 @@ import os
 
 import pandas as pd
 
-DATASET_CSV_NAME = os.getenv("DATASET_CSV_NAME")
-TRAIN_CSV_NAME = os.getenv("TRAIN_CSV_NAME")
-TEST_CSV_NAME = os.getenv("TEST_CSV_NAME")
-TEST_RATIO_ENV = os.getenv("TEST_RATIO")
-if TEST_RATIO_ENV is None:
-    raise ValueError("TEST_RATIO environment variable is not set")
-TEST_RATIO = float(TEST_RATIO_ENV)
+DATASET_CSV_NAME = os.getenv("DATASET_CSV_NAME", "dataset.csv")
+TRAIN_CSV_NAME = os.getenv("TRAIN_CSV_NAME", "train.csv")
+TEST_CSV_NAME = os.getenv("TEST_CSV_NAME", "test.csv")
+TEST_RATIO = float(os.getenv("TEST_RATIO", "0.2"))
 
 
 def create_test_split(input_csv, train_csv, test_csv, test_ratio=0.2):
