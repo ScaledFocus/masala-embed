@@ -35,13 +35,16 @@ def get_embeddings(model, processor, device, text=None, image_path=None):
             text_embed = outputs.text_embeds.cpu().numpy()
             image_embed = outputs.image_embeds.cpu().numpy()
             text_embed = text_embed / np.linalg.norm(text_embed, axis=1, keepdims=True)
-            image_embed = image_embed / np.linalg.norm(image_embed, axis=1, keepdims=True)
+            image_embed = image_embed / np.linalg.norm(image_embed, axis=1,
+                keepdims=True)
             combined_embed = (text_embed + image_embed) / 2.0
-            combined_embed = combined_embed / np.linalg.norm(combined_embed, axis=1, keepdims=True)
+            combined_embed = combined_embed / np.linalg.norm(combined_embed, axis=1,
+                keepdims=True)
             return combined_embed
         elif has_text:
             # Text only
-            inputs = processor(text=text, return_tensors="pt", padding=True, truncation=True)
+            inputs = processor(text=text, return_tensors="pt", padding=True,
+                truncation=True)
             inputs = {k: v.to(device) for k, v in inputs.items()}
             outputs = model(**inputs)
             text_embed = outputs.text_embeds.cpu().numpy()
@@ -54,7 +57,8 @@ def get_embeddings(model, processor, device, text=None, image_path=None):
             inputs = {k: v.to(device) for k, v in inputs.items()}
             outputs = model(**inputs)
             image_embed = outputs.image_embeds.cpu().numpy()
-            image_embed = image_embed / np.linalg.norm(image_embed, axis=1, keepdims=True)
+            image_embed = image_embed / np.linalg.norm(image_embed, axis=1,
+                keepdims=True)
             return image_embed
         else:
             raise ValueError("Either text or image_path must be provided")
@@ -95,8 +99,10 @@ def evaluate_model(model_path, benchmark_csv, device, output_csv):
         dish_row = dish_rows.iloc[0]
 
         # Extract text and image, handling possible NaN/empty values
-        dish_text = str(dish_row["text"]).strip() if pd.notna(dish_row["text"]) else None
-        dish_image = str(dish_row["image"]).strip() if pd.notna(dish_row["image"]) else None
+        dish_text = str(dish_row["text"]).strip() if pd.notna(dish_row["text"])\
+        else None
+        dish_image = str(dish_row["image"]).strip() if pd.notna(dish_row["image"]) \
+        else None
 
         dish_embeddings[dish_name] = get_embeddings(
             model, processor, device, text=dish_text, image_path=dish_image

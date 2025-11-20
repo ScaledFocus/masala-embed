@@ -67,7 +67,6 @@ class ImageTextDataset(Dataset):
 
 
 def collate_fn(batch, processor):
-    """Custom collate function to handle variable length text and flexible modalities."""
     # Separate items by modality
     texts = []
     images = []
@@ -81,7 +80,8 @@ def collate_fn(batch, processor):
         has_image_list.append(has_image)
 
         if has_text:
-            texts.append(processor.tokenizer.decode(item['input_ids'], skip_special_tokens=True))
+            texts.append(processor.tokenizer.decode(item['input_ids'],
+                skip_special_tokens=True))
         if has_image:
             images.append(item['pixel_values'])
 
@@ -110,9 +110,7 @@ def collate_fn(batch, processor):
             return_tensors="pt",
         )
     else:
-        # Mixed modalities - process separately and combine
-        # This shouldn't happen with proper batching, but handle it
-        raise ValueError("Batch contains mixed modalities - ensure consistent data per batch")
+        raise ValueError("Batch contains mixed modalities.")
 
     return inputs
 
