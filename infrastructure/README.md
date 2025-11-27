@@ -11,15 +11,12 @@ uv pip install -U vllm --extra-index-url https://wheels.vllm.ai/nightly --exclud
 
 ## Create FAISS Index
 
-Build the FAISS index from your dataset with multimodal embeddings.
+Build dual FAISS indices (text and image) from your dataset.
 
 ```bash
 MODEL=google/siglip2-base-patch16-224
 DATASET_CSV=dataset.csv
-BATCH_SIZE=32
-HNSW_M=32
-HNSW_EF_CONSTRUCTION=200
-HNSW_EF_SEARCH=32
+GPU_MEMORY_UTILIZATION=0.5
 python infrastructure/create_faiss.py
 ```
 
@@ -27,15 +24,13 @@ python infrastructure/create_faiss.py
 
 1. MODEL: Model to use for embeddings (default: `google/siglip2-base-patch16-224`).
 2. DATASET_CSV: Path to dataset CSV file (default: `dataset.csv`).
-3. BATCH_SIZE: Batch size for processing (default: `32`).
-4. HNSW_M: HNSW M parameter (default: `32`).
-5. HNSW_EF_CONSTRUCTION: HNSW efConstruction parameter (default: `200`).
-6. HNSW_EF_SEARCH: HNSW efSearch parameter (default: `32`).
+3. GPU_MEMORY_UTILIZATION: GPU memory for vLLM (default: `0.5`).
 
 ### Output
 
-- `infrastructure/setup/dish_index.faiss` - FAISS index file
-- `infrastructure/setup/dish_index.csv` - Dish names (same order as index)
+- `infrastructure/setup/dish_index_text.faiss` - IndexFlatIP for text embeddings
+- `infrastructure/setup/dish_index_image.faiss` - IndexFlatIP for image embeddings
+- `infrastructure/setup/dish_index.csv` - Dish names (same order as both indices)
 
 ## Run Server
 
@@ -62,14 +57,34 @@ Response:
 
 ```json
 {
-    "dish": "Biryani"
+    "dishes": ["Biryani", "Pulao", "Fried Rice", "Khichdi", "Tehri"]
 }
 ```
 
 You can provide:
 
-- Both `text` and `image` (multimodal)
-- Only `text`
-- Only `image`
+- Both `text` and `image` - runs separate FAISS searches and combines top 5 results
+- Only `text` - searches FAISS text index
+- Only `image` - searches FAISS image index
 
 At least one must be provided.
+
+**How it works:**
+
+1. Text provided → text embedding → FAISS text index search → top 5 results
+2. Image provided → image embedding → FAISS image index search → top 5 results
+3. Both provided → combines scores from both searches → returns top 5
+
+### Environment Variables
+
+1. MODEL: Model to use (default: `google/siglip2-base-patch16-224`).
+2. GPU_MEMORY_UTILIZATION: GPU memory for vLLM (default: `0.8`).
+3. TOP_K: Number of results to return (default: `5`).
+
+Run with:
+
+```bash
+GPU_MEMORY_UTILIZATION=0.8 \
+TOP_K=5 \
+uvicorn infrastructure.server:app --host 0.0.0.0 --port 8000 --loop uvloop --http httptools
+```
