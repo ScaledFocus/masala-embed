@@ -106,7 +106,9 @@ def get_dish(req: DishRequest) -> DishResponse:
             text_vec = _embed_text(app.state.model, req.text)
             D, I = app.state.text_index.search(text_vec, k=TOP_K)  # noqa: E741
             return DishResponse(
-                dishes=[dishes[int(idx)] for idx in I[0] if 0 <= idx < len(dishes)][:TOP_K]
+                dishes=[dishes[int(idx)] for idx in I[0] if 0 <= idx < len(dishes)][
+                    :TOP_K
+                ]
             )
 
         # Image-only: search image index (already sorted by FAISS)
@@ -114,7 +116,9 @@ def get_dish(req: DishRequest) -> DishResponse:
             image_vec = _embed_image(app.state.http, app.state.model, str(req.image))
             D, I = app.state.image_index.search(image_vec, k=TOP_K)  # noqa: E741
             return DishResponse(
-                dishes=[dishes[int(idx)] for idx in I[0] if 0 <= idx < len(dishes)][:TOP_K]
+                dishes=[dishes[int(idx)] for idx in I[0] if 0 <= idx < len(dishes)][
+                    :TOP_K
+                ]
             )
 
         # Both modalities: search both indices and combine scores
