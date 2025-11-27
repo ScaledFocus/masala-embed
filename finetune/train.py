@@ -74,16 +74,17 @@ def collate_fn(batch, processor):
     has_image_list = []
 
     for item in batch:
-        has_text = 'input_ids' in item
-        has_image = 'pixel_values' in item
+        has_text = "input_ids" in item
+        has_image = "pixel_values" in item
         has_text_list.append(has_text)
         has_image_list.append(has_image)
 
         if has_text:
-            texts.append(processor.tokenizer.decode(item['input_ids'],
-                skip_special_tokens=True))
+            texts.append(
+                processor.tokenizer.decode(item["input_ids"], skip_special_tokens=True)
+            )
         if has_image:
-            images.append(item['pixel_values'])
+            images.append(item["pixel_values"])
 
     # Process based on what modalities are present
     if texts and images and all(has_text_list) and all(has_image_list):
@@ -164,7 +165,7 @@ def train():
         batch_size=BATCH_SIZE,
         shuffle=True,
         num_workers=0,  # Set to 0 to avoid multiprocessing issues with images
-        collate_fn=lambda batch: collate_fn(batch, processor)
+        collate_fn=lambda batch: collate_fn(batch, processor),
     )
 
     # Setup optimizer and scheduler
@@ -174,7 +175,7 @@ def train():
     scheduler = get_linear_schedule_with_warmup(
         optimizer,
         num_warmup_steps=num_warmup_steps,
-        num_training_steps=num_training_steps
+        num_training_steps=num_training_steps,
     )
 
     print(f"Training steps: {num_training_steps}, Warmup steps: {num_warmup_steps}")
