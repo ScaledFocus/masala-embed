@@ -438,6 +438,7 @@ def save_as_csv(
                 "consumable_name",
                 "query",
                 "query_filters",
+                "reasoning",
                 "esci_label",
                 "generated_at",
             ]
@@ -458,6 +459,7 @@ def save_as_csv(
                 "consumable_name",
                 "query",
                 "query_filters",
+                "reasoning",
             ]
             # Keep only columns that exist in the DataFrame
             final_columns = [col for col in essential_columns if col in df.columns]

@@ -4,9 +4,9 @@
 # Edit the defaults below, then run: ./run_rollback_synthetic_data.sh
 
 # Default parameters (edit these as needed)
-RUN_ID=""
-DRY_RUN="true"
-CONFIRM=""
+RUN_ID="9f61abdd8bde40a28208f381504db898"
+DRY_RUN=""
+CONFIRM="true"
 
 uv run python database/scripts/rollback_synthetic_data.py \
 	$(if [ -n "$RUN_ID" ]; then echo "--run-id $RUN_ID"; fi) \

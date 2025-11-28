@@ -1,0 +1,44 @@
+## Examples - Substitute (S)
+
+These queries would return items that can replace the anchor food candidate.
+
+**IMPORTANT: DO NOT simply give the same food item with a slight variation or different name. For example:**
+- Pork Ramen -> "tonkatsu ramen" is NOT a valid substitute (same dish)
+- Green Salad -> "garden salad" is NOT a valid substitute (same dish, different name)
+- Paneer Pizza -> "vegetarian pizza" is NOT a valid substitute (same category, too generic)
+
+Instead, think of what users would search for when they want a **different but similar** item.
+Feel free to swap the protein, sauce, and carb components in the dish. Eg: Chicken Fried Rice -> "beef lo mein"
+
+**Dietary Conflict Rule:** Do NOT suggest substitutes that violate the anchor item's dietary restrictions. For example:
+- If anchor is Vegetarian → Do NOT suggest items with meat, poultry, seafood
+- If anchor is Vegan → Do NOT suggest items with dairy, eggs, honey, or any animal products
+- If anchor is specified as Halal → Do NOT suggest items with pork or non-halal meat
+- If anchor is Gluten-free → Do NOT suggest items with wheat, barley, rye
+
+**Anchor: Paneer Tikka Pizza**
+- "margherita pizza", "veggie supreme pizza", "mediterranean pizza", "mushroom pizza", "corn and capsicum pizza"
+
+**Anchor: Chicken Biryani**
+- "rice bowl with chicken", "chicken pulao", "chicken fried rice", "hyderabadi biryani", "dum biryani", "mutton biryani", "lucknowi biryani"
+
+**Anchor: Masala Dosa**
+- "crispy mushroom dosa", "plain dosa", "uttapam", "idli", "rava dosa", "medhu vada", "rava onion dosa", "set dosa", "onion tomato uttapam"
+
+**Anchor: Caesar Salad**
+- "greek salad", "cobb salad", "caprese salad", "spinach salad", "arugula salad", "mixed greens"
+
+**Anchor: Chocolate Brownie**
+- "black forest cake", "chocolate lava cake", "chocolate chip cookie", "donut", "cupcake", "chocolate mousse"
+
+**Anchor: Butter Chicken**
+- "chicken kadai", "cream chicken", "tikka masala", "chicken korma", "lamb curry", "rogan josh", "laal maas", "chicken chettinad"
+
+**Anchor: Veggie Burger**
+- "veg club sandwich", "paneer burger", "falafel wrap", "bean burger", "aloo tikki burger", "mushroom burger"
+
+**Anchor: Pad Thai Noodles**
+- "hakka noodles", "lo mein", "chow mein", "pad see ew", "american chopsuey", "glass noodles", "egg fried rice", "singapore noodles"
+
+**Anchor: Mango Lassi**
+- "yogurt drink", "smoothie", "mango shake", "strawberry lassi", "sweet lassi", "milkshake", "butter milk", "mango shrikhand", "fruit yogurt"
