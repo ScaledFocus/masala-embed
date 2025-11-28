@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏷️ ESCI Dataset Annotation Tool</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s;
+        }
+        .content-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin: 30px 0;
+        }
+        .consumable-box, .query-box {
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid;
+        }
+        .consumable-box {
+            background-color: #f0f8ff;
+            border-color: #1f77b4;
+        }
+        .query-box {
+            background-color: #fff8f5;
+            border-color: #ff6b35;
+        }
+        .consumable-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1f77b4;
+            margin: 10px 0;
+        }
+        .query-text {
+            font-size: 26px;
+            font-weight: bold;
+            color: #ff6b35;
+            font-style: italic;
+            margin: 10px 0;
+        }
+        .current-label {
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .label-E { background-color: #d4edda; color: #155724; }
+        .label-S { background-color: #fff3cd; color: #856404; }
+        .label-C { background-color: #d1ecf1; color: #0c5460; }
+        .label-I { background-color: #f8d7da; color: #721c24; }
+
+        .buttons-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+        }
+        .btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .btn-nav { background-color: #6c757d; color: white; }
+        .btn-E { background-color: #28a745; color: white; }
+        .btn-S { background-color: #ffc107; color: black; }
+        .btn-C { background-color: #17a2b8; color: white; }
+        .btn-I { background-color: #dc3545; color: white; }
+
+        .controls-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .btn-control { background-color: #007bff; color: white; }
+        .btn-edit { background-color: #ffc107; color: black; }
+        .btn-delete { background-color: #dc3545; color: white; }
+        .btn-review { background-color: #28a745; color: white; }
+        .btn-review.active { background-color: #6f42c1; color: white; }
+
+        .shortcuts {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+        .status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            display: none;
+        }
+        .status.success { background-color: #28a745; }
+        .status.error { background-color: #dc3545; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 30px;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 500px;
+            position: relative;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            cursor: pointer;
+        }
+        .close:hover { color: black; }
+        .modal input[type="text"], .modal textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            margin: 10px 0;
+            box-sizing: border-box;
+        }
+        .modal-buttons {
+            text-align: center;
+            margin-top: 20px;
+        }
+        .modal-buttons button {
+            margin: 0 10px;
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="status" id="status"></div>
+
+    <div class="container">
+        <div class="header">
+            <h1>🏷️ ESCI Dataset Annotation Tool</h1>
+            <div id="fileInfo">Loading...</div>
+            <div id="reviewModeIndicator" style="display: none; background-color: #6f42c1; color: white; padding: 8px 15px; border-radius: 5px; margin-top: 10px; font-weight: bold;">
+                📋 Review Mode: Showing only human-annotated records
+            </div>
+        </div>
+
+        <div id="mainContent" style="display: none;">
+            <!-- Progress -->
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div style="text-align: center; margin: 10px 0;">
+                <span id="progressText">0 / 0</span>
+            </div>
+
+            <!-- Skip to Record -->
+            <div style="text-align: center; margin: 15px 0;">
+                <label for="skipToRecord" style="margin-right: 10px; font-weight: bold;">Skip to record:</label>
+                <input type="number" id="skipToRecord" min="1" max="1" style="width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center;">
+                <button class="btn" onclick="skipToRecord()" style="margin-left: 10px; padding: 5px 15px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Go</button>
+            </div>
+
+            <!-- Content -->
+            <div class="content-row">
+                <div class="consumable-box">
+                    <h3>🍽️ Consumable</h3>
+                    <div><strong>ID:</strong> <span id="consumableId"></span></div>
+                    <div class="consumable-name">📦 <span id="consumableName"></span></div>
+                    <div><strong>🥘 Ingredients:</strong> <span id="consumableIngredients"></span></div>
+
+                </div>
+
+                <div class="query-box">
+                    <h3>🔍 Search Query
+                        <button class="btn btn-edit" onclick="editQuery()" style="font-size: 12px; padding: 5px 10px; margin-left: 10px;">✏️ Edit</button>
+                    </h3>
+                    <div class="query-text">🔎 "<span id="queryText"></span>"</div>
+                    <div><strong>Created:</strong> <span id="createdAt"></span></div>
+                    <div id="queryFiltersContainer" style="margin-top: 10px; display: none;">
+                        <strong>🏷️ Query Dimensions:</strong>
+                        <div id="queryFiltersText" style="background-color: #f8f9fa; padding: 8px; border-radius: 4px; margin-top: 5px; font-family: monospace; font-size: 12px; white-space: pre-wrap;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Current Label(s) -->
+            <div id="labelContainer">
+                <!-- Database mode: separate human and AI labels -->
+                <div id="databaseLabels" style="display: none;">
+                    <div class="current-label" id="humanLabel">
+                        <strong>Human Label:</strong> <span id="humanLabelText"></span>
+                    </div>
+                    <div class="current-label" id="aiLabel">
+                        <strong>AI Label:</strong> <span id="aiLabelText"></span>
+                    </div>
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>📝 Human Label Reason:</strong>
+                            <button class="btn btn-edit" onclick="editLabelReason()" style="font-size: 12px; padding: 5px 10px;">✏️ Edit (L)</button>
+                        </div>
+                        <div id="humanLabelReasonText" style="margin-top: 10px; font-style: italic; color: #6c757d;">Not set</div>
+                    </div>
+                    <div style="background-color: #fff8f5; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 3px solid #ff6b35;">
+                        <strong>🤖 AI Label Reason:</strong>
+                        <div id="aiLabelReasonText" style="margin-top: 10px; font-style: italic; color: #6c757d;">Not set</div>
+                    </div>
+                </div>
+                <!-- CSV mode: single combined label -->
+                <div id="csvLabel" style="display: none;">
+                    <div class="current-label" id="currentLabel"></div>
+                    <div style="background-color: #fff8f5; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 3px solid #ff6b35;">
+                        <strong>🤖 AI Label Reason:</strong>
+                        <div id="csvReasoningText" style="margin-top: 10px; font-style: italic; color: #6c757d;">Not set</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ESCI Buttons -->
+            <div class="buttons-row">
+                <button class="btn btn-nav" id="prevBtn" onclick="navigate(-1)">◀️ Previous</button>
+                <button class="btn btn-E" onclick="setLabel('E')">🟢 Z - Exact</button>
+                <button class="btn btn-S" onclick="setLabel('S')">🟡 X - Substitute</button>
+                <button class="btn btn-C" onclick="setLabel('C')">🟠 C - Complement</button>
+                <button class="btn btn-I" onclick="setLabel('I')">🔴 V - Irrelevant</button>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls-row">
+                <button class="btn btn-control" onclick="navigate(1)">▶️ Next</button>
+                <button class="btn btn-control" onclick="window.location.reload()">🔄 Reload</button>
+            </div>
+
+            <!-- Review Mode Controls -->
+            <div class="controls-row">
+                <button class="btn btn-review" id="reviewModeBtn" onclick="toggleReviewMode()">📋 Review Mode</button>
+                <button class="btn btn-control" onclick="showReviewStats()">📊 Stats</button>
+            </div>
+
+            <!-- Advanced Actions -->
+            <div class="controls-row">
+                <button class="btn btn-delete" onclick="deleteLabel()">🗑️ Clear Label</button>
+                <button class="btn btn-delete" onclick="deleteExample()">🗑️ Delete Example</button>
+            </div>
+            <div class="controls-row">
+                <button class="btn btn-delete" onclick="deleteConsumable()">🗑️ Delete Consumable (F)</button>
+            </div>
+
+            <!-- Keyboard Shortcuts -->
+            <div class="shortcuts">
+                <strong>⌨️ Keyboard Shortcuts:</strong>
+                Z=Exact • X=Substitute • C=Complement • V=Irrelevant • ←→=Navigate • Esc=Clear • Enter=Copy AI • R=Review Mode • D=Delete Example • F=Delete Consumable • Q=Edit Query • L=Edit Label Reason
+                <br><strong>🔧 In Modals:</strong> Enter=Save/Confirm • Esc=Cancel
+                <br><strong>✅ Auto-saves to database immediately!</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Query Modal -->
+    <div id="editQueryModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('editQueryModal')">&times;</span>
+            <h3>✏️ Edit Query</h3>
+            <p>Update the search query text:</p>
+            <textarea id="editQueryInput" rows="3" placeholder="Enter new query..."></textarea>
+            <div class="modal-buttons">
+                <button class="btn btn-control" onclick="saveQueryEdit()">💾 Save</button>
+                <button class="btn btn-nav" onclick="closeModal('editQueryModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Example Modal -->
+    <div id="confirmDeleteModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('confirmDeleteModal')">&times;</span>
+            <h3>⚠️ Delete Example</h3>
+            <p>Are you sure you want to delete this example? This will:</p>
+            <ul>
+                <li>Remove the example completely</li>
+                <li>Delete all associated labels</li>
+                <li><strong>This cannot be undone!</strong></li>
+            </ul>
+            <div class="modal-buttons">
+                <button class="btn btn-delete" onclick="confirmDeleteExample()">🗑️ Delete</button>
+                <button class="btn btn-nav" onclick="closeModal('confirmDeleteModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Label Modal -->
+    <div id="confirmDeleteLabelModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('confirmDeleteLabelModal')">&times;</span>
+            <h3>⚠️ Clear Label</h3>
+            <p>Are you sure you want to clear your label for this example?</p>
+            <p>This will remove your annotation but keep the example.</p>
+            <div class="modal-buttons">
+                <button class="btn btn-delete" onclick="confirmDeleteLabel()">🗑️ Clear</button>
+                <button class="btn btn-nav" onclick="closeModal('confirmDeleteLabelModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Consumable Modal -->
+    <div id="confirmDeleteConsumableModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('confirmDeleteConsumableModal')">&times;</span>
+            <h3>⚠️ Delete Consumable</h3>
+            <p><strong>Are you sure you want to delete this consumable?</strong></p>
+            <p>This will permanently delete:</p>
+            <ul>
+                <li><strong>The consumable itself</strong> (ID: <span id="deleteConsumableId"></span>)</li>
+                <li><strong>All examples</strong> linked to this consumable</li>
+                <li><strong>All labels</strong> for those examples</li>
+                <li><strong>Orphaned queries</strong> (queries with no other examples)</li>
+            </ul>
+            <p style="color: #dc3545; font-weight: bold;">⚠️ This cannot be undone!</p>
+            <div class="modal-buttons">
+                <button class="btn btn-delete" onclick="confirmDeleteConsumable()">🗑️ Delete Consumable</button>
+                <button class="btn btn-nav" onclick="closeModal('confirmDeleteConsumableModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Label Reason Modal -->
+    <div id="editLabelReasonModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('editLabelReasonModal')">&times;</span>
+            <h3>📝 Edit Label Reason</h3>
+            <p>Add notes explaining why you chose this ESCI label:</p>
+            <textarea id="editLabelReasonInput" rows="4" placeholder="E.g., 'Query asks for spicy pizza and this item is exactly that' or 'User wants pasta but this can substitute'"></textarea>
+            <div class="modal-buttons">
+                <button class="btn btn-control" onclick="saveLabelReason()">💾 Save</button>
+                <button class="btn btn-nav" onclick="closeModal('editLabelReasonModal')">❌ Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let data = [];
+        let currentIndex = 0;
+        let filename = '';
+        let reviewMode = false;
+        let totalRecords = 0;
+
+        // Load data from Flask API
+        async function loadData(isReviewMode = false) {
+            try {
+                const url = isReviewMode ? '/api/data?review_mode=true' : '/api/data';
+                const response = await fetch(url);
+                const result = await response.json();
+
+                if (result.error) {
+                    document.getElementById('fileInfo').textContent = 'Error: ' + result.error;
+                    return;
+                }
+
+                data = result.data;
+                filename = result.filename;
+                reviewMode = result.review_mode || false;
+                totalRecords = result.total_records || result.total;
+
+                // Update file info display
+                const recordsText = reviewMode ?
+                    `📋 ${filename} (${result.total} annotated / ${totalRecords} total)` :
+                    `📁 ${filename} (${result.total} records)`;
+                document.getElementById('fileInfo').textContent = recordsText;
+
+                // Update review mode indicator
+                const indicator = document.getElementById('reviewModeIndicator');
+                const reviewBtn = document.getElementById('reviewModeBtn');
+                if (reviewMode) {
+                    indicator.style.display = 'block';
+                    reviewBtn.textContent = '🚪 Exit Review';
+                    reviewBtn.classList.add('active');
+                } else {
+                    indicator.style.display = 'none';
+                    reviewBtn.textContent = '📋 Review Mode';
+                    reviewBtn.classList.remove('active');
+                }
+
+                document.getElementById('mainContent').style.display = 'block';
+
+                if (data.length > 0) {
+                    // Update skip input max value
+                    document.getElementById('skipToRecord').max = data.length;
+                    displayItem(0);
+                } else if (reviewMode) {
+                    showStatus('📋 No annotated records found. Add some annotations first!', 'error');
+                }
+            } catch (error) {
+                document.getElementById('fileInfo').textContent = 'Error loading data: ' + error.message;
+            }
+        }
+
+        // Detect if we're in database mode (has separate human/AI labels) or CSV mode
+        function isDatabaseMode(item) {
+            return item.hasOwnProperty('human_esci_label') || item.hasOwnProperty('ai_esci_label');
+        }
+
+        // Display current item
+        function displayItem(index) {
+            if (index < 0 || index >= data.length) return;
+
+            currentIndex = index;
+            const item = data[index];
+
+            // Update content
+            document.getElementById('consumableId').textContent = item.consumable_id || '';
+            document.getElementById('consumableName').textContent = item.consumable_name || '';
+            document.getElementById('consumableIngredients').textContent = item.consumable_ingredients || 'Not specified';
+            document.getElementById('queryText').textContent = item.query || '';
+            document.getElementById('createdAt').textContent = item.created_at || '';
+
+            // Display query_filters if available (only dimensions portion)
+            const queryFiltersContainer = document.getElementById('queryFiltersContainer');
+            const queryFiltersText = document.getElementById('queryFiltersText');
+            if (item.query_filters) {
+                try {
+                    const filters = typeof item.query_filters === 'string'
+                        ? JSON.parse(item.query_filters)
+                        : item.query_filters;
+                    // Only show dimensions, not rule_based_dietary_restrictions
+                    const dimensions = filters.dimensions || filters;
+                    queryFiltersText.textContent = JSON.stringify(dimensions, null, 2);
+                    queryFiltersContainer.style.display = 'block';
+                } catch (e) {
+                    queryFiltersContainer.style.display = 'none';
+                }
+            } else {
+                queryFiltersContainer.style.display = 'none';
+            }
+
+            // Update label reason displays (database mode only)
+            if (isDatabaseMode(item)) {
+                // Human label reason
+                const humanLabelReason = item.human_label_reason || '';
+                document.getElementById('humanLabelReasonText').textContent = humanLabelReason || 'Not set';
+                document.getElementById('humanLabelReasonText').style.color = humanLabelReason ? '#495057' : '#6c757d';
+
+                // AI label reason
+                const aiLabelReason = item.ai_label_reason || '';
+                document.getElementById('aiLabelReasonText').textContent = aiLabelReason || 'Not set';
+                document.getElementById('aiLabelReasonText').style.color = aiLabelReason ? '#495057' : '#6c757d';
+            }
+
+            const labelNames = { E: 'Exact', S: 'Substitute', C: 'Complement', I: 'Irrelevant', '': 'Not Labeled' };
+            const labelEmojis = { E: '🟢', S: '🟡', C: '🟠', I: '🔴', '': '⚫' };
+
+            // Check if database mode or CSV mode
+            if (isDatabaseMode(item)) {
+                // Database mode: show separate human and AI labels
+                document.getElementById('databaseLabels').style.display = 'block';
+                document.getElementById('csvLabel').style.display = 'none';
+
+                // Human label
+                const humanLabel = item.human_esci_label || '';
+                const humanLabelDiv = document.getElementById('humanLabel');
+                humanLabelDiv.className = `current-label ${humanLabel ? `label-${humanLabel}` : ''}`;
+                document.getElementById('humanLabelText').textContent = humanLabel ?
+                    `${labelEmojis[humanLabel]} ${humanLabel} - ${labelNames[humanLabel]}` :
+                    `${labelEmojis['']} Not Labeled`;
+
+                // AI label
+                const aiLabel = item.ai_esci_label || '';
+                const aiLabelDiv = document.getElementById('aiLabel');
+                aiLabelDiv.className = `current-label ${aiLabel ? `label-${aiLabel}` : ''}`;
+                document.getElementById('aiLabelText').textContent = aiLabel ?
+                    `${labelEmojis[aiLabel]} ${aiLabel} - ${labelNames[aiLabel]}` :
+                    `${labelEmojis['']} Not Labeled`;
+            } else {
+                // CSV mode: show single combined label
+                document.getElementById('databaseLabels').style.display = 'none';
+                document.getElementById('csvLabel').style.display = 'block';
+
+                const currentLabel = item.esci_label || 'I';
+                const labelDiv = document.getElementById('currentLabel');
+                labelDiv.className = `current-label label-${currentLabel}`;
+                labelDiv.textContent = `${labelEmojis[currentLabel]} ${currentLabel} - ${labelNames[currentLabel]}`;
+
+                // Display AI reasoning from CSV
+                const reasoning = item.reasoning || '';
+                document.getElementById('csvReasoningText').textContent = reasoning || 'Not set';
+                document.getElementById('csvReasoningText').style.color = reasoning ? '#495057' : '#6c757d';
+            }
+
+            // Update progress
+            const progress = ((index + 1) / data.length) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            document.getElementById('progressText').textContent = `${index + 1} / ${data.length}`;
+
+            // Update skip input field with current record number
+            document.getElementById('skipToRecord').value = index + 1;
+
+            // Navigation buttons are always enabled (circular navigation)
+            document.getElementById('prevBtn').disabled = false;
+        }
+
+        // Show status message
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 2000);
+        }
+
+        // Set ESCI label
+        async function setLabel(label) {
+            if (data.length === 0) return;
+
+            try {
+                const response = await fetch('/api/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex,
+                        example_id: data[currentIndex].example_id,
+                        label: label
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data based on mode
+                    const item = data[currentIndex];
+                    if (isDatabaseMode(item)) {
+                        // Database mode: update human label
+                        data[currentIndex].human_esci_label = label;
+                        showStatus(`✅ Saved ${label} to database!`);
+                    } else {
+                        // CSV mode: update combined label
+                        data[currentIndex].esci_label = label;
+                        showStatus(`✅ Saved ${label} to CSV!`);
+                    }
+
+                    // Auto-advance to next item
+                    if (currentIndex < data.length - 1) {
+                        displayItem(currentIndex + 1);
+                    } else {
+                        displayItem(currentIndex); // Refresh current item
+                        showStatus('🎉 Annotation complete!');
+                    }
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Copy AI label to human label (database mode only)
+        async function copyAiLabel() {
+            if (data.length === 0) return;
+
+            const item = data[currentIndex];
+            if (!isDatabaseMode(item)) {
+                showStatus('❌ Copy AI label only works in database mode', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/copy-ai-label', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex,
+                        example_id: data[currentIndex].example_id
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data
+                    data[currentIndex].human_esci_label = data[currentIndex].ai_esci_label;
+                    displayItem(currentIndex); // Refresh display
+                    showStatus(`✅ ${result.message}`);
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Clear human label (database mode) or esci_label (CSV mode)
+        async function clearCurrentLabel() {
+            if (data.length === 0) return;
+
+            try {
+                const response = await fetch('/api/delete-label', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex,
+                        example_id: data[currentIndex].example_id
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data regardless of mode
+                    const item = data[currentIndex];
+                    if (isDatabaseMode(item)) {
+                        data[currentIndex].human_esci_label = '';
+                        data[currentIndex].human_label_reason = '';  // Also clear label reason
+                    } else {
+                        data[currentIndex].esci_label = '';
+                    }
+                    displayItem(currentIndex); // Refresh display
+                    showStatus(`✅ ${result.message}`);
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Skip to specific record
+        function skipToRecord() {
+            const input = document.getElementById('skipToRecord');
+            const recordNumber = parseInt(input.value);
+
+            if (isNaN(recordNumber) || recordNumber < 1 || recordNumber > data.length) {
+                showStatus(`❌ Invalid record number. Enter 1-${data.length}`, 'error');
+                input.value = currentIndex + 1; // Reset to current record
+                return;
+            }
+
+            // Convert to 0-based index
+            const targetIndex = recordNumber - 1;
+            displayItem(targetIndex);
+            showStatus(`📍 Jumped to record ${recordNumber}`);
+        }
+
+        // Toggle review mode
+        async function toggleReviewMode() {
+            const newReviewMode = !reviewMode;
+
+            // If trying to enter review mode, check if there are any annotations first
+            if (newReviewMode) {
+                // Count how many records have human labels
+                const annotatedCount = data.filter(item => {
+                    if (isDatabaseMode(item)) {
+                        return item.human_esci_label && item.human_esci_label !== '';
+                    } else {
+                        return item.esci_label && item.esci_label !== '';
+                    }
+                }).length;
+
+                if (annotatedCount === 0) {
+                    showStatus('⚠️ Zero items reviewed - cannot enter review mode', 'error');
+                    return; // Don't enter review mode
+                }
+            }
+
+            await loadData(newReviewMode);
+
+            const modeText = newReviewMode ? 'entered' : 'exited';
+            showStatus(`📋 ${modeText.charAt(0).toUpperCase() + modeText.slice(1)} review mode`);
+        }
+
+        // Show annotation statistics
+        function showReviewStats() {
+            if (reviewMode) {
+                // In review mode, data.length is the annotated count
+                const annotatedCount = data.length;
+                const totalCount = totalRecords;
+                const percentage = totalCount > 0 ? Math.round((annotatedCount / totalCount) * 100) : 0;
+                showStatus(`📊 Reviewing: ${annotatedCount}/${totalCount} records annotated (${percentage}%)`);
+            } else {
+                // In normal mode, we need to calculate annotated count from the full dataset
+                // For now, just show the total count
+                const totalCount = data.length;
+                showStatus(`📊 Total records: ${totalCount}`);
+            }
+        }
+
+        // Navigate (circular)
+        function navigate(direction) {
+            if (data.length === 0) return;
+
+            let newIndex = currentIndex + direction;
+
+            // Wrap around: if going before first (newIndex < 0), go to last
+            if (newIndex < 0) {
+                newIndex = data.length - 1;
+            }
+            // Wrap around: if going after last (newIndex >= length), go to first
+            else if (newIndex >= data.length) {
+                newIndex = 0;
+            }
+
+            displayItem(newIndex);
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Skip if user is typing in input fields
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (data.length === 0) return;
+
+            // Skip if any modal is open
+            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal', 'confirmDeleteConsumableModal', 'editLabelReasonModal'];
+            if (modals.some(modalId => {
+                const modal = document.getElementById(modalId);
+                return modal && modal.style.display === 'block';
+            })) return;
+
+            switch(e.key.toLowerCase()) {
+                case 'z':
+                    e.preventDefault();
+                    setLabel('E');
+                    break;
+                case 'x':
+                    e.preventDefault();
+                    setLabel('S');
+                    break;
+                case 'c':
+                    e.preventDefault();
+                    setLabel('C');
+                    break;
+                case 'v':
+                    e.preventDefault();
+                    setLabel('I');
+                    break;
+                case 'arrowleft':
+                    e.preventDefault();
+                    navigate(-1);
+                    break;
+                case 'arrowright':
+                    e.preventDefault();
+                    navigate(1);
+                    break;
+                case 'escape':
+                    e.preventDefault();
+                    clearCurrentLabel();
+                    break;
+                case 'enter':
+                    e.preventDefault();
+                    copyAiLabel();
+                    break;
+                case 'r':
+                    e.preventDefault();
+                    toggleReviewMode();
+                    break;
+                case 'd':
+                    e.preventDefault();
+                    deleteExample();
+                    break;
+                case 'q':
+                    e.preventDefault();
+                    editQuery();
+                    break;
+                case 'f':
+                    e.preventDefault();
+                    deleteConsumable();
+                    break;
+                case 'l':
+                    e.preventDefault();
+                    editLabelReason();
+                    break;
+            }
+        });
+
+        // Load data when page loads
+        window.addEventListener('load', function() {
+            loadData();
+
+            // Add Enter key support for skip input field
+            document.getElementById('skipToRecord').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    skipToRecord();
+                }
+            });
+
+            // Add Enter and Escape key support for edit query modal
+            document.getElementById('editQueryInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveQueryEdit();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeModal('editQueryModal');
+                }
+            });
+
+            // Add Enter and Escape key support for edit label reason modal
+            document.getElementById('editLabelReasonInput').addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    saveLabelReason();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeModal('editLabelReasonModal');
+                }
+            });
+
+            // Add keyboard support for delete confirmation modals
+            document.addEventListener('keydown', function(e) {
+                // Check if delete example confirmation modal is open
+                const deleteModal = document.getElementById('confirmDeleteModal');
+                if (deleteModal && deleteModal.style.display === 'block') {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        confirmDeleteExample();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeModal('confirmDeleteModal');
+                    }
+                }
+
+                // Check if delete label confirmation modal is open
+                const deleteLabelModal = document.getElementById('confirmDeleteLabelModal');
+                if (deleteLabelModal && deleteLabelModal.style.display === 'block') {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        confirmDeleteLabel();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeModal('confirmDeleteLabelModal');
+                    }
+                }
+
+                // Check if delete consumable confirmation modal is open
+                const deleteConsumableModal = document.getElementById('confirmDeleteConsumableModal');
+                if (deleteConsumableModal && deleteConsumableModal.style.display === 'block') {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        confirmDeleteConsumable();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeModal('confirmDeleteConsumableModal');
+                    }
+                }
+            });
+        });
+
+        // Edit query functionality
+        function editQuery() {
+            const currentQuery = document.getElementById('queryText').textContent;
+            document.getElementById('editQueryInput').value = currentQuery;
+            document.getElementById('editQueryModal').style.display = 'block';
+
+            // Focus on the input field for immediate typing
+            document.getElementById('editQueryInput').focus();
+        }
+
+        async function saveQueryEdit() {
+            const newQuery = document.getElementById('editQueryInput').value.trim();
+            if (!newQuery) {
+                showStatus('❌ Query cannot be empty', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/update-query', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex,
+                        example_id: data[currentIndex].example_id,
+                        query: newQuery
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data
+                    data[currentIndex].query = newQuery;
+                    displayItem(currentIndex); // Refresh display
+                    closeModal('editQueryModal');
+                    showStatus('✅ Query updated successfully!');
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Delete example functionality
+        function deleteExample() {
+            document.getElementById('confirmDeleteModal').style.display = 'block';
+        }
+
+        async function confirmDeleteExample() {
+            try {
+                const response = await fetch('/api/delete-example', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex,
+                        example_id: data[currentIndex].example_id
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Remove from local data array
+                    data.splice(currentIndex, 1);
+
+                    // Adjust current index if needed
+                    if (currentIndex >= data.length && data.length > 0) {
+                        currentIndex = data.length - 1;
+                    }
+
+                    closeModal('confirmDeleteModal');
+
+                    if (data.length === 0) {
+                        showStatus('📊 All examples deleted!');
+                        document.getElementById('mainContent').style.display = 'none';
+                        document.getElementById('fileInfo').textContent = 'No data remaining';
+                    } else {
+                        displayItem(currentIndex);
+                        showStatus(`✅ ${result.message}`);
+                        // Update skip input max value
+                        document.getElementById('skipToRecord').max = data.length;
+                    }
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Delete label functionality
+        function deleteLabel() {
+            document.getElementById('confirmDeleteLabelModal').style.display = 'block';
+        }
+
+        async function confirmDeleteLabel() {
+            try {
+                const response = await fetch('/api/delete-label', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        index: currentIndex,
+                        example_id: data[currentIndex].example_id
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    closeModal('confirmDeleteLabelModal');
+
+                    // Update local data regardless of mode
+                    const item = data[currentIndex];
+                    if (isDatabaseMode(item)) {
+                        // Database mode: clear human label and label reason
+                        data[currentIndex].human_esci_label = '';
+                        data[currentIndex].human_label_reason = '';
+                    } else {
+                        // CSV mode: clear combined label
+                        data[currentIndex].esci_label = '';
+                    }
+                    displayItem(currentIndex); // Refresh display
+                    showStatus(`✅ ${result.message}`);
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Delete consumable functionality
+        function deleteConsumable() {
+            const item = data[currentIndex];
+
+            // Only works in database mode
+            if (!isDatabaseMode(item)) {
+                showStatus('❌ Delete consumable only works in database mode', 'error');
+                return;
+            }
+
+            // Set the consumable ID in the modal
+            document.getElementById('deleteConsumableId').textContent = item.consumable_id || 'N/A';
+            document.getElementById('confirmDeleteConsumableModal').style.display = 'block';
+        }
+
+        async function confirmDeleteConsumable() {
+            try {
+                const response = await fetch('/api/delete-consumable', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        consumable_id: data[currentIndex].consumable_id
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const consumableId = data[currentIndex].consumable_id;
+
+                    // Remove all examples with this consumable_id from local data
+                    data = data.filter(item => item.consumable_id !== consumableId);
+
+                    closeModal('confirmDeleteConsumableModal');
+
+                    if (data.length === 0) {
+                        showStatus('📊 All examples deleted!');
+                        document.getElementById('mainContent').style.display = 'none';
+                        document.getElementById('fileInfo').textContent = 'No data remaining';
+                    } else {
+                        // Adjust current index if needed
+                        if (currentIndex >= data.length) {
+                            currentIndex = data.length - 1;
+                        }
+                        displayItem(currentIndex);
+                        showStatus(`✅ ${result.message}`);
+                        // Update skip input max value
+                        document.getElementById('skipToRecord').max = data.length;
+                    }
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Edit label reason functionality
+        function editLabelReason() {
+            const item = data[currentIndex];
+
+            // Only works in database mode
+            if (!isDatabaseMode(item)) {
+                showStatus('❌ Label reason only available in database mode', 'error');
+                return;
+            }
+
+            // Check if human label exists
+            const humanLabel = item.human_esci_label || '';
+            if (!humanLabel) {
+                showStatus('⚠️ Set a human label first before adding a reason', 'error');
+                return;
+            }
+
+            const currentReason = item.human_label_reason || '';
+            document.getElementById('editLabelReasonInput').value = currentReason;
+            document.getElementById('editLabelReasonModal').style.display = 'block';
+
+            // Focus on the textarea for immediate typing
+            document.getElementById('editLabelReasonInput').focus();
+        }
+
+        async function saveLabelReason() {
+            const newReason = document.getElementById('editLabelReasonInput').value.trim();
+
+            try {
+                const response = await fetch('/api/update-label-reason', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        example_id: data[currentIndex].example_id,
+                        label_reason: newReason
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update local data
+                    data[currentIndex].human_label_reason = newReason;
+                    displayItem(currentIndex); // Refresh display
+                    closeModal('editLabelReasonModal');
+                    showStatus('✅ Label reason updated!');
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Network error: ' + error.message, 'error');
+            }
+        }
+
+        // Modal management
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modals = ['editQueryModal', 'confirmDeleteModal', 'confirmDeleteLabelModal', 'confirmDeleteConsumableModal', 'editLabelReasonModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+
+        console.log('🏷️ ESCI Annotation Tool loaded');
+        console.log('Keyboard shortcuts: Z=E, X=S, C=C, V=I, ←→=Navigate, Esc=Clear, Enter=Copy AI, R=Review Mode, D=Delete Example, F=Delete Consumable, Q=Edit Query');
+        console.log('🔧 In modals: Enter=Save/Confirm, Esc=Cancel');
+        console.log('✅ Changes save directly to CSV file!');
+        console.log('✏️ New features: Edit queries, delete examples, delete consumables, clear labels, review mode');
+    </script>
+</body>
+</html>

@@ -2,8 +2,9 @@
 """
 MLflow Runs Summary Script
 
-This script generates a CSV summary of all migrated MLflow runs across experiments,
-extracting key parameters like start_idx, limit, and generation type.
+This script generates a CSV summary of all migrated MLflow runs (both full and partial)
+across experiments, extracting key parameters like start_idx, limit, generation type,
+and migration status.
 
 Usage:
     python scripts/mlflow_runs_summary.py --output summary.csv
@@ -83,8 +84,8 @@ def determine_generation_type(params: dict, tags: dict) -> str:
 
 
 def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
-    """Get summary of all migrated runs."""
-    logger.info("Searching for migrated MLflow runs...")
+    """Get summary of all migrated runs (both full and partial)."""
+    logger.info("Searching for migrated MLflow runs (full and partial)...")
 
     summary_data = []
 
@@ -107,19 +108,31 @@ def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
         )
 
         try:
-            # Search for migrated runs in this experiment
-            runs = mlflow.search_runs(
+            # Search for migrated runs (both full and partial) in this experiment
+            # MLflow doesn't support OR in filter strings, so we need to search
+            # separately
+            migrated_runs = mlflow.search_runs(
                 experiment_ids=[experiment.experiment_id],
                 filter_string="tags.data_status = 'migrated'",
                 output_format="pandas",
             )
+
+            migrated_partial_runs = mlflow.search_runs(
+                experiment_ids=[experiment.experiment_id],
+                filter_string="tags.data_status = 'migrated_partial'",
+                output_format="pandas",
+            )
+
+            # Combine the results
+            runs = pd.concat([migrated_runs, migrated_partial_runs], ignore_index=True)
 
             if runs.empty:
                 logger.info(f"No migrated runs found in experiment: {experiment.name}")
                 continue
 
             logger.info(
-                f"Found {len(runs)} migrated runs in experiment: {experiment.name}"
+                f"Found {len(runs)} migrated runs (full and partial) in experiment: "
+                f"{experiment.name}"
             )
 
             for _, run in runs.iterrows():
@@ -161,10 +174,24 @@ def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
                 model = params.get("model", "unknown")
                 generation_type = determine_generation_type(params, tags)
 
+                # Determine migration status
+                migration_status = tags.get("data_status", "unknown")
+
+                # Extract ESCI label
+                esci_label = params.get("esci_label", "unknown")
+
+                # For Intent generation experiments, default to "E" if no
+                # esci_label is found
+                if esci_label == "unknown" and experiment.name.startswith("Intent"):
+                    esci_label = "E"
+
+                # Extract git hash (data generation hash)
+                # Priority: 1) data_gen_hash param, 2) mlflow.source.git.commit tag
+                data_gen_hash = params.get("data_gen_hash")
+                if not data_gen_hash:
+                    data_gen_hash = tags.get("mlflow.source.git.commit", "unknown")
+
                 # Extract metrics
-                total_queries = run.get("metrics.total_queries_generated", 0)
-                unique_queries = run.get("metrics.unique_queries_generated", 0)
-                successful_matches = run.get("metrics.successful_matches", 0)
                 runtime_seconds = run.get("metrics.total_runtime_seconds", 0)
 
                 # Calculate end_idx based on start_idx and limit
@@ -176,18 +203,17 @@ def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
                     "experiment_name": experiment.name,
                     "run_id": run_id,
                     "generation_type": generation_type,
+                    "migration_status": migration_status,
+                    "esci_label": esci_label,
+                    "data_gen_hash": data_gen_hash,
                     "start_idx": start_idx,
                     "end_idx": end_idx,
                     "limit": limit,
                     "batch_size": batch_size,
                     "model": model,
-                    "total_queries_generated": total_queries,
-                    "unique_queries_generated": unique_queries,
-                    "successful_matches": successful_matches,
                     "runtime_seconds": runtime_seconds,
                     "start_time": start_time,
                     "end_time": end_time,
-                    "mlflow_run_id": run_id,
                 }
 
                 summary_data.append(summary_record)
@@ -212,7 +238,8 @@ def get_migrated_runs_summary(experiment_name: str = None) -> pd.DataFrame:
 def main():
     """Main execution."""
     parser = argparse.ArgumentParser(
-        description="Generate CSV summary of migrated MLflow runs"
+        description="Generate CSV summary of migrated MLflow runs "
+        "(both full and partial)"
     )
     parser.add_argument(
         "--experiment-name",
@@ -256,14 +283,21 @@ def main():
     summary_df.to_csv(output_file, index=False)
     logger.info(f"Summary saved to: {output_file}")
 
+    # Also save a copy to database/ directory with fixed filename
+    database_output = Path("database") / "synthetic_data_migration_summary.csv"
+    database_output.parent.mkdir(exist_ok=True)
+    summary_df.to_csv(database_output, index=False)
+    logger.info(f"Copy saved to: {database_output}")
+
     # Print summary statistics
     print("\n📊 MLflow Migrated Runs Summary")
     print("=" * 50)
     print(f"Total migrated runs: {len(summary_df)}")
     print(f"Experiments: {summary_df['experiment_name'].nunique()}")
     print(f"Generation types: {summary_df['generation_type'].value_counts().to_dict()}")
-    print(f"Total queries generated: {summary_df['total_queries_generated'].sum():,}")
-    print(f"Total unique queries: {summary_df['unique_queries_generated'].sum():,}")
+    print(
+        f"Migration statuses: {summary_df['migration_status'].value_counts().to_dict()}"
+    )
     date_range = f"{summary_df['start_time'].min()} to {summary_df['start_time'].max()}"
     print(f"Date range: {date_range}")
     print(f"\n💾 Summary saved to: {output_file}")

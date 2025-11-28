@@ -1,0 +1,84 @@
+## Examples - Irrelevant (I)
+
+These queries would have no meaningful relationship to the anchor food candidate.
+The anchor would NOT appear in search results for these queries.
+
+**IMPORTANT**: Ensure the query is truly irrelevant and does NOT fall into Exact (E), Substitute (S), or Complement (C) categories.
+
+**Irrelevant patterns:**
+1. Dietary conflicts: veg item with non-veg query, dairy with vegan query
+2. Strong cuisine mismatch: Indian food with Japanese/Chinese/Mexican query (different flavor profiles)
+3. Nutritional conflicts: keto item with high-carb query
+4. Allergen conflicts: gluten-free with wheat-based query
+5. Meal timing conflicts: breakfast item with explicit dinner query
+
+---
+
+**Anchor: Paneer Tikka Pizza (Vegetarian, Indian-Italian fusion)**
+- "chicken wings", "beef burger", "fish tacos", "pork ribs", "lamb curry", "egg sandwich", "shrimp fried rice", "mutton biryani", "bacon"
+
+**Anchor: Chicken Biryani (Non-veg, Indian, Rice-based)**
+- "vegan salad", "gluten free pasta", "sushi", "margherita pizza", "falafel wrap", "tofu bowl", "fruit smoothie", "pancakes", "pure veg"
+
+**Anchor: Vegan Salad (Plant-based, Healthy)**
+- "butter chicken", "peperoni pizza", "creemy carbonara pasta", "milkshake", "ice cream", "fried chicken", "cheesecake", "bacon burger", "nihari"
+
+**Anchor: Gluten-Free Pasta (Italian, Gluten-free)**
+- "naan bread", "regular pizza", "garlic bread", "croissant", "bagel", "ramen", "dumplings", "paratha", "wheat roti", "baguette"
+
+**Anchor: Chocolate Brownie (Dessert, Sweet)**
+- "vegan dessert", "dairy free sweet", "gluten free cake", "sugar free", "keto dessert", "low carb sweet", "pakora", "samosa", "Spring rolls"
+
+**Anchor: Breakfast Burrito (Mexican, Breakfast, Egg-based)**
+- "sushi", "pad thai", "tandoori chicken", "lasagna", "pho", "steamed dumplings", "vegan dinner", "jain food", "dinner biryani", "vegan coconut curry", "suhi", "baingan bharta"
+
+**Anchor: Mango Lassi (Beverage, Yogurt-based, Indian, Dairy)**
+- "vegan food", "dairy free", "lactose free", "oat milk", "almond milk smoothie", "non-dairy dessert", "chinese", "italian", "mexican", "japanese", "beer", "wine", "diet coke"
+
+**Anchor: Keto Bowl (Low-carb, High-protein, No grains)**
+- "rice", "noodles", "pasta", "pizza", "bread", "pastry", "cake", "sugary dessert", "biryani", "fried rice", "roti"
+
+**Anchor: Sushi Platter (Japanese, Seafood, Cold)**
+- "paneer tikka", "butter naan", "samosa", "vada pav", "dosa", "idli", "tandoori roti", "curry", "biryani", "birria tacos", "empandas"
+
+**Anchor: Grilled Chicken Salad (Healthy, Protein-rich, Light)**
+- "vegan meal", "vegetarian food", "plant based", "dairy free dessert", "gluten free pasta", "jain food", "pure veg", "fried chicken kfc style", "hyderabadi biryani"
+
+**Anchor: Vada Pav (Street food, Indian, Spicy)**
+- "sushi", "italian pasta", "greek salad", "french toast", "american pancakes", "japanese ramen", "korean bbq", "mexican burrito", "indo mie", "babyback ribs"
+
+**Anchor: Pepperoni Pizza (Non-veg, Italian-American)**
+- "vegan meal", "vegetarian food", "jain food", "pure veg", "plant based", "veg only", "thai green curry", "chinese noodles", "indian curry", "mexican tacos", "japanese ramen"
+
+**Anchor: Falafel Wrap (Mediterranean, Vegan, Chickpea-based)**
+- "butter chicken", "mutton curry", "fish fry", "egg biryani", "chicken tikka", "beef tacos", "pork chops", "cheese pizza", "shrimp pasta", "dosai", "bunny chow"
+
+**Anchor: Tom Yum Soup (Thai, Spicy, Seafood, Starter)**
+- "vegan meal", "vegetarian food", "pure veg", "jain food", "indian curry", "mexican tacos", "italian pasta", "american burger"
+
+**Anchor: Pav Bhaji (Indian street food, Spicy, Vegetarian)**
+- "sushi", "ramen", "pad thai", "korean food", "mexican burrito", "greek gyro", "italian risotto", "japanese"
+
+**Anchor: Masala Dosa (South Indian, Vegetarian, Breakfast)**
+- "chinese noodles", "sushi", "pasta", "burger", "pizza", "mexican tacos", "japanese ramen", "non-veg", "chicken"
+
+**Anchor: Caesar Salad (American, Healthy, Contains dairy & egg)**
+- "vegan", "dairy free", "egg free", "plant based", "jain food", "non-veg", "chicken", "mutton", "fish"
+
+**Anchor: Butter Naan (Indian bread, Contains dairy & gluten)**
+- "gluten free", "dairy free", "vegan", "keto", "low carb", "paleo", "sushi", "mexican tacos", "chinese noodles", "japanese ramen"
+
+**Anchor: Fried Rice (Chinese, Rice-based, High-carb)**
+- "keto", "low carb", "no rice", "paleo", "grain free", "italian pasta", "mexican tacos", "indian curry", "american burger"
+
+**Anchor: Tiramisu (Italian dessert, Contains coffee, dairy, egg)**
+- "vegan", "dairy free", "egg free", "sugar free", "keto dessert", "gluten free cake", "chinese", "indian", "mexican"
+
+**Anchor: Hummus (Mediterranean, Vegan dip)**
+- "non-veg", "chicken", "mutton", "fish", "egg", "dairy", "cheese", "chinese", "indian curry", "mexican"
+
+**Anchor: Kheer (Indian dessert, Sweet, Dairy-based)**
+- "vegan", "dairy free", "sugar free", "keto", "low carb", "chinese", "mexican", "japanese", "italian"
+
+**Anchor: Green Tea (Beverage, Hot, Japanese)**
+- "soda", "cola", "energy drink", "milkshake", "lassi", "smoothie", "alcoholic drink", "beer", "wine", "whiskey"

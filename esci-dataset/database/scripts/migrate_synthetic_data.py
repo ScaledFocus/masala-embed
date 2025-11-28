@@ -9,12 +9,13 @@ It handles the complete flow:
 2. Download and process CSV data
 3. Create/find labeler entries for synthetic generation
 4. Insert queries, examples, and labels into database
-5. Mark MLflow runs as "migrated"
+5. Mark MLflow runs as "migrated" (or "migrated_partial" if --bridged flag used)
 
 Usage:
     python migrate_synthetic_data.py --experiment-name initial-generation-E --dry-run
     python migrate_synthetic_data.py --run-id abc123 --confirm
     python migrate_synthetic_data.py --all-approved --confirm
+    python migrate_synthetic_data.py --run-id abc123 --bridged --confirm
 """
 
 import argparse
@@ -102,10 +103,15 @@ def get_approved_runs(experiment_name: str = None, run_id: str = None) -> list[d
 
     approved_runs = []
     for run in runs:
-        # Check if already migrated
-        if run.data.tags.get("data_status") == "migrated":
-            logger.info(f"Skipping already migrated run: {run.info.run_id}")
+        # Check if already fully migrated
+        data_status = run.data.tags.get("data_status")
+        if data_status == "migrated":
+            logger.info(f"Skipping already fully migrated run: {run.info.run_id}")
             continue
+
+        # Log partial migration status but allow reprocessing
+        if data_status == "migrated_partial":
+            logger.info(f"Run {run.info.run_id} has partial migration (bridged only)")
 
         # Extract git commit hash from MLflow metadata
         # Priority: 1) data_gen_hash param, 2) mlflow.source.git.commit tag
@@ -139,7 +145,9 @@ def get_approved_runs(experiment_name: str = None, run_id: str = None) -> list[d
     return approved_runs
 
 
-def download_run_data(run_id: str, generation_approach: str = None) -> pd.DataFrame:
+def download_run_data(
+    run_id: str, generation_approach: str = None, bridged_only: bool = False
+) -> tuple[pd.DataFrame, dict]:
     """Download CSV data from MLflow run artifacts."""
     client = mlflow.tracking.MlflowClient()
 
@@ -158,7 +166,7 @@ def download_run_data(run_id: str, generation_approach: str = None) -> pd.DataFr
             raise ValueError(f"No CSV files found in run {run_id}")
 
     if len(csv_files) > 1:
-        logger.warning(f"Multiple CSV files found in run {run_id}, using first one")
+        raise ValueError(f"Multiple CSV files found in run {run_id}")
 
     # Download the CSV file
     csv_path = csv_files[0].path
@@ -166,9 +174,50 @@ def download_run_data(run_id: str, generation_approach: str = None) -> pd.DataFr
 
     # Load the CSV
     df = pd.read_csv(local_path)
-    logger.info(f"Downloaded {len(df)} records from {csv_path}")
+    original_count = len(df)
+    logger.info(f"Downloaded {original_count} records from {csv_path}")
 
-    return df
+    # Initialize filtering metadata
+    filter_info = {
+        "original_count": original_count,
+        "final_count": original_count,
+        "has_query_type": "query_type" in df.columns,
+        "bridged_requested": bridged_only,
+        "filtering_applied": False,
+        "can_mark_partial": False,
+    }
+
+    # Apply query_type filtering if requested
+    if bridged_only:
+        if "query_type" in df.columns:
+            df = df[df["query_type"] == "bridged"].copy()
+            filtered_count = len(df)
+            filter_info.update(
+                {
+                    "final_count": filtered_count,
+                    "filtering_applied": True,
+                    "can_mark_partial": filtered_count
+                    > 0,  # Only if we actually have bridged records
+                }
+            )
+
+            logger.info(
+                f"Filtered to {filtered_count} 'bridged' records "
+                f"({original_count - filtered_count} 'intent' records excluded)"
+            )
+
+            if filtered_count == 0:
+                logger.warning("No 'bridged' query_type records found in the data")
+        else:
+            # Fail early if --bridged is used but no query_type column exists
+            raise ValueError(
+                "--bridged flag specified but 'query_type' column not found in data. "
+                "Cannot perform partial migration without query_type column. "
+                "Remove --bridged flag for full migration or use data with query_type "
+                "column."
+            )
+
+    return df, filter_info
 
 
 def ensure_labeler_exists(data_gen_hash: str, generation_approach: str) -> int:
@@ -313,29 +362,47 @@ def process_enhanced_json_data(
                     if candidate_id not in existing_ids:
                         continue
 
+                    # Extract reasoning if available
+                    reasoning = None
+                    if "reasoning" in row and pd.notna(row["reasoning"]):
+                        reasoning = row["reasoning"]
+
                     # Insert example (query-consumable pair)
+                    # Use ON CONFLICT to skip duplicates gracefully
                     cursor.execute(
                         """
-                        INSERT INTO example (query_id, consumable_id)
-                        VALUES (%s, %s)
+                        INSERT INTO example (query_id, consumable_id, example_gen_hash)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (query_id, consumable_id) DO NOTHING
                         RETURNING id
                         """,
-                        (query_id, candidate_id),
+                        (query_id, candidate_id, data_gen_hash),
                     )
-                    example_id = cursor.fetchone()[0]
+                    result = cursor.fetchone()
+
+                    # Skip label insertion if example already existed
+                    if result is None:
+                        logger.debug(
+                            f"Skipping duplicate example: query_id={query_id}, "
+                            f"consumable_id={candidate_id}"
+                        )
+                        continue
+
+                    example_id = result[0]
                     examples_inserted += 1
 
-                    # Insert label
+                    # Insert label with reasoning
                     cursor.execute(
                         """
                         INSERT INTO label (labeler_id, example_id, esci_label,
-                                         auto_label_score)
-                        VALUES (%s, %s, %s, %s)
+                                         label_reason, auto_label_score)
+                        VALUES (%s, %s, %s, %s, %s)
                         """,
                         (
                             labeler_id,
                             example_id,
                             esci_label,
+                            reasoning,
                             1.0,
                         ),  # 1.0 score for synthetic data
                     )
@@ -346,15 +413,29 @@ def process_enhanced_json_data(
     return queries_inserted, examples_inserted, labels_inserted
 
 
-def mark_run_as_migrated(run_id: str) -> None:
+def mark_run_as_migrated(run_id: str, partial: bool = False) -> None:
     """Mark MLflow run as successfully migrated."""
     client = mlflow.tracking.MlflowClient()
-    client.set_tag(run_id, "data_status", "migrated")
+
+    if partial:
+        status = "migrated_partial"
+        logger.info(
+            f"Marked run {run_id} as migrated_partial (only bridged records migrated)"
+        )
+    else:
+        status = "migrated"
+        logger.info(f"Marked run {run_id} as migrated")
+
+    client.set_tag(run_id, "data_status", status)
     client.set_tag(run_id, "migration_timestamp", datetime.now().isoformat())
-    logger.info(f"Marked run {run_id} as migrated")
+
+    if partial:
+        client.set_tag(run_id, "migration_type", "bridged_only")
 
 
-def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
+def migrate_run(
+    run_data: dict, dry_run: bool = True, bridged_only: bool = False
+) -> dict:
     """Migrate a single MLflow run to database."""
     run_id = run_data["run_id"]
     data_gen_hash = run_data["data_gen_hash"]
@@ -383,10 +464,35 @@ def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
 
     try:
         # Download data
-        df = download_run_data(run_id, generation_approach)
+        df, filter_info = download_run_data(run_id, generation_approach, bridged_only)
+
+        # Check if we have any data to process
+        if len(df) == 0:
+            logger.error(f"No records to process for run {run_id}")
+            return {
+                "run_id": run_id,
+                "status": "error",
+                "error": "No records found after filtering",
+                "records_processed": 0,
+                "queries_inserted": 0,
+                "examples_inserted": 0,
+                "labels_inserted": 0,
+            }
 
         if dry_run:
             logger.info(f"[DRY RUN] Would process {len(df)} records")
+            if filter_info["bridged_requested"] and filter_info["can_mark_partial"]:
+                logger.info("[DRY RUN] Would mark as 'migrated_partial' (bridged only)")
+            elif (
+                filter_info["bridged_requested"] and not filter_info["can_mark_partial"]
+            ):
+                logger.info(
+                    "[DRY RUN] Would NOT mark as migrated "
+                    "(no valid records after filtering)"
+                )
+            else:
+                logger.info("[DRY RUN] Would mark as 'migrated' (full migration)")
+
             return {
                 "run_id": run_id,
                 "status": "dry_run",
@@ -409,8 +515,29 @@ def migrate_run(run_data: dict, dry_run: bool = True) -> dict:
         else:
             raise ValueError(f"Unsupported output_type: {output_type}")
 
-        # Mark as migrated
-        mark_run_as_migrated(run_id)
+        # Mark as migrated based on what we actually processed
+        if filter_info["bridged_requested"] and filter_info["can_mark_partial"]:
+            # We used --bridged flag and actually migrated some bridged records
+            mark_run_as_migrated(run_id, partial=True)
+        elif not filter_info["bridged_requested"]:
+            # Full migration (no --bridged flag)
+            mark_run_as_migrated(run_id, partial=False)
+        else:
+            # --bridged was requested but we can't mark as partial
+            # (either no query_type column or no bridged records found)
+            logger.warning(
+                f"Not marking run {run_id} as migrated - insufficient data for "
+                f"partial migration"
+            )
+            return {
+                "run_id": run_id,
+                "status": "error",
+                "error": "Cannot mark as migrated - no valid bridged records found",
+                "records_processed": len(df),
+                "queries_inserted": queries_inserted,
+                "examples_inserted": examples_inserted,
+                "labels_inserted": labels_inserted,
+            }
 
         return {
             "run_id": run_id,
@@ -452,6 +579,12 @@ def main():
         action="store_true",
         help="Confirm migration (required for actual migration)",
     )
+    parser.add_argument(
+        "--bridged",
+        action="store_true",
+        help="Only migrate records with query_type='bridged' "
+        "(for intent generation data)",
+    )
 
     args = parser.parse_args()
 
@@ -485,10 +618,20 @@ def main():
 
         logger.info(f"Found {len(approved_runs)} approved runs for migration")
 
+        if args.bridged:
+            logger.info(
+                "🔗 BRIDGED MODE: Only migrating records with query_type='bridged'"
+            )
+            logger.info(
+                "   Runs will be marked as 'migrated_partial' instead of 'migrated'"
+            )
+
         # Migrate each run
         results = []
         for run_data in approved_runs:
-            result = migrate_run(run_data, dry_run=args.dry_run)
+            result = migrate_run(
+                run_data, dry_run=args.dry_run, bridged_only=args.bridged
+            )
             results.append(result)
 
         # Summary
