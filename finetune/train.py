@@ -67,51 +67,34 @@ class ImageTextDataset(Dataset):
 
 
 def collate_fn(batch, processor):
-    # Separate items by modality
-    texts = []
-    images = []
-    has_text_list = []
-    has_image_list = []
+    """
+    Collate function that gracefully handles mixed modalities in the dataset.
 
-    for item in batch:
-        has_text = "input_ids" in item
-        has_image = "pixel_values" in item
-        has_text_list.append(has_text)
-        has_image_list.append(has_image)
+    For training the SigLIP-style contrastive loss, we only use samples that
+    have **both** text and image available in the batch. Text-only or
+    image-only samples are simply ignored for that batch.
+    """
+    paired_items = [
+        item for item in batch if ("input_ids" in item and "pixel_values" in item)
+    ]
 
-        if has_text:
-            texts.append(
-                processor.tokenizer.decode(item["input_ids"], skip_special_tokens=True)
-            )
-        if has_image:
-            images.append(item["pixel_values"])
+    # No paired samples in this batch → caller should skip this batch
+    if len(paired_items) == 0:
+        return None
 
-    # Process based on what modalities are present
-    if texts and images and all(has_text_list) and all(has_image_list):
-        # All items have both modalities
-        inputs = processor(
-            text=texts,
-            images=torch.stack(images),
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-        )
-    elif texts and not images:
-        # All items have text only
-        inputs = processor(
-            text=texts,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-        )
-    elif images and not texts:
-        # All items have images only
-        inputs = processor(
-            images=torch.stack(images),
-            return_tensors="pt",
-        )
-    else:
-        raise ValueError("Batch contains mixed modalities.")
+    texts = [
+        processor.tokenizer.decode(it["input_ids"], skip_special_tokens=True)
+        for it in paired_items
+    ]
+    images = [it["pixel_values"] for it in paired_items]
+
+    inputs = processor(
+        text=texts,
+        images=torch.stack(images),
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+    )
 
     return inputs
 
@@ -189,6 +172,10 @@ def train():
         progress_bar = tqdm(train_dataloader, desc=f"Epoch {epoch + 1}/{NUM_EPOCHS}")
 
         for batch in progress_bar:
+            # Some batches may contain only single-modality samples; skip them.
+            if batch is None:
+                continue
+
             batch = {k: v.to(device) for k, v in batch.items()}
 
             outputs = model(**batch)
