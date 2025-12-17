@@ -6,6 +6,7 @@ DATASET_CSV_NAME = os.getenv("DATASET_CSV_NAME", "dataset.csv")
 TRAIN_CSV_NAME = os.getenv("TRAIN_CSV_NAME", "train.csv")
 TEST_CSV_NAME = os.getenv("TEST_CSV_NAME", "test.csv")
 TEST_RATIO = float(os.getenv("TEST_RATIO", "0.2"))
+RANDOM_SEED = os.getenv("RANDOM_SEED")  # Optional: set for reproducibility
 
 
 def create_test_split(input_csv, train_csv, test_csv, test_ratio=0.2):
@@ -21,7 +22,9 @@ def create_test_split(input_csv, train_csv, test_csv, test_ratio=0.2):
         n_rows = len(dish_rows)
         n_test = max(1, int(n_rows * test_ratio))
 
-        shuffled = dish_rows.sample(frac=1, random_state=42)
+        # Use random_state only if RANDOM_SEED is set for reproducibility
+        random_state = int(RANDOM_SEED) if RANDOM_SEED else None
+        shuffled = dish_rows.sample(frac=1, random_state=random_state)
 
         test_rows.append(shuffled.iloc[:n_test])
         train_rows.append(shuffled.iloc[n_test:])

@@ -13,7 +13,7 @@ TRAIN_CSV = os.getenv("TRAIN_CSV", "train.csv")
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "finetuned_siglip")
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "8"))
 LEARNING_RATE = float(os.getenv("LEARNING_RATE", "5e-6"))
-NUM_EPOCHS = int(os.getenv("NUM_EPOCHS", "10"))
+NUM_EPOCHS = int(os.getenv("NUM_EPOCHS", "30"))
 WARMUP_RATIO = float(os.getenv("WARMUP_RATIO", "0.1"))
 DEVICE = os.getenv("DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
 

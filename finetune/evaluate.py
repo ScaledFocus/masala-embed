@@ -1,33 +1,98 @@
 import os
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
+import torch
 from PIL import Image
 from sklearn.metrics.pairwise import cosine_similarity
-from vllm import LLM
+from transformers import AutoModel, AutoProcessor
 
 # Configuration from environment variables
-MODEL_PATH = os.getenv("MODEL_PATH", "google/siglip2-base-patch16-224")
+# Default MODEL_PATH is the original SigLIP model for comparison
+MODEL_PATH = os.getenv("MODEL_PATH")
+print(f"MODEL_PATH: {MODEL_PATH}")
 BENCHMARK_CSV = os.getenv("BENCHMARK_CSV", "test.csv")
-OUTPUT_CSV = os.getenv("OUTPUT_CSV", "evaluation_results.csv")
-GPU_MEMORY_UTILIZATION = float(os.getenv("GPU_MEMORY_UTILIZATION", "0.5"))
+OUTPUT_CSV_BASE = os.getenv("OUTPUT_CSV", "evaluation_results.csv")
+
+# Add timestamp to output filename if not explicitly provided with timestamp
+if OUTPUT_CSV_BASE == "evaluation_results.csv":
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    base_name, ext = os.path.splitext(OUTPUT_CSV_BASE)
+    OUTPUT_CSV = f"{base_name}_{timestamp}{ext}"
+else:
+    OUTPUT_CSV = OUTPUT_CSV_BASE
 
 
-def get_text_embedding(llm: LLM, text: str) -> np.ndarray:
-    """Get normalized text embedding using vLLM."""
-    out = llm.embed([text])
-    embed = np.asarray(out[0].outputs.embedding, dtype="float32")
-    embed = embed / np.linalg.norm(embed)
-    return embed[None, :]  # Shape: (1, dim)
+def load_model_and_processor(model_path: str, device: torch.device):
+    """Load the (possibly finetuned) SigLIP model and processor."""
+    print(f"Loading model from: {model_path}")
+    processor = AutoProcessor.from_pretrained(model_path, use_fast=True)
+    model = AutoModel.from_pretrained(model_path)
+    model.to(device)
+    model.eval()
+    return model, processor
 
 
-def get_image_embedding(llm: LLM, image_path: str) -> np.ndarray:
-    """Get normalized image embedding using vLLM."""
-    image = Image.open(image_path).convert("RGB")
-    out = llm.embed([image])
-    embed = np.asarray(out[0].outputs.embedding, dtype="float32")
-    embed = embed / np.linalg.norm(embed)
-    return embed[None, :]  # Shape: (1, dim)
+def get_text_embedding(
+    model: AutoModel, processor: AutoProcessor, text: str, device: torch.device
+) -> np.ndarray:
+    """Get normalized text embedding using the text tower only."""
+    if not text:
+        raise ValueError("Empty text provided to get_text_embedding")
+
+    with torch.no_grad():
+        inputs = processor(
+            text=[text],
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+        ).to(device)
+
+        # Use the dedicated text tower to avoid needing pixel_values
+        if hasattr(model, "get_text_features"):
+            embeds = model.get_text_features(**inputs)  # (batch, dim)
+        else:
+            outputs = model(**inputs)
+            embeds = outputs.text_embeds  # Fallback for compatible models
+
+        embeds = embeds / embeds.norm(dim=-1, keepdim=True)
+        vec = embeds[0].detach().cpu().numpy().astype("float32")
+    return vec[None, :]  # Shape: (1, dim)
+
+
+def get_image_embedding(
+    model: AutoModel, processor: AutoProcessor, image_path: str, device: torch.device
+) -> np.ndarray | None:
+    """Get normalized image embedding using the vision tower only.
+
+    Returns None if the image cannot be loaded or is corrupted.
+    """
+    if not image_path:
+        raise ValueError("Empty image path provided to get_image_embedding")
+
+    try:
+        image = Image.open(image_path).convert("RGB")
+    except Exception as e:
+        print(f"Warning: failed to open image {image_path}: {e}")
+        return None
+
+    with torch.no_grad():
+        inputs = processor(
+            images=[image],
+            return_tensors="pt",
+        ).to(device)
+
+        # Use the dedicated vision tower to avoid requiring text inputs
+        if hasattr(model, "get_image_features"):
+            embeds = model.get_image_features(**inputs)  # (batch, dim)
+        else:
+            outputs = model(**inputs)
+            embeds = outputs.image_embeds  # Fallback for compatible models
+
+        embeds = embeds / embeds.norm(dim=-1, keepdim=True)
+        vec = embeds[0].detach().cpu().numpy().astype("float32")
+    return vec[None, :]  # Shape: (1, dim)
 
 
 def compute_ndcg(relevance_scores, k):
@@ -51,20 +116,14 @@ def compute_ndcg(relevance_scores, k):
     return dcg / idcg
 
 
-def evaluate_model(model_path, benchmark_csv, output_csv, gpu_memory_utilization):
-    """Evaluate model on benchmark dataset using vLLM."""
+def evaluate_model(model_path, benchmark_csv, output_csv, _gpu_memory_utilization=None):
+    """Evaluate model on benchmark dataset using the transformers SigLIP model."""
     print(f"Model: {model_path}")
     print(f"Dataset: {benchmark_csv}")
-    print(f"GPU Memory: {gpu_memory_utilization}")
     print("-" * 60)
 
-    # Load model with vLLM
-    llm = LLM(
-        model=model_path,
-        task="embed",
-        tokenizer_mode="auto",
-        gpu_memory_utilization=gpu_memory_utilization,
-    )
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model, processor = load_model_and_processor(model_path, device)
 
     # Load dataset
     df = pd.read_csv(benchmark_csv)
@@ -87,10 +146,14 @@ def evaluate_model(model_path, benchmark_csv, output_csv, gpu_memory_utilization
         )
 
         if dish_text:
-            dish_text_embeddings[dish_name] = get_text_embedding(llm, dish_text)
+            dish_text_embeddings[dish_name] = get_text_embedding(
+                model, processor, dish_text, device
+            )
 
         if dish_image:
-            dish_image_embeddings[dish_name] = get_image_embedding(llm, dish_image)
+            img_emb = get_image_embedding(model, processor, dish_image, device)
+            if img_emb is not None:
+                dish_image_embeddings[dish_name] = img_emb
 
     dish_names = list(
         set(dish_text_embeddings.keys()) | set(dish_image_embeddings.keys())
@@ -145,7 +208,9 @@ def evaluate_model(model_path, benchmark_csv, output_csv, gpu_memory_utilization
         combined_scores = {}
 
         if query_text and dish_text_matrix is not None:
-            query_text_embed = get_text_embedding(llm, query_text)
+            query_text_embed = get_text_embedding(
+                model, processor, query_text, device
+            )
             text_similarities = cosine_similarity(query_text_embed, dish_text_matrix)[0]
             for dish_name, score in zip(dish_names, text_similarities):
                 combined_scores[dish_name] = combined_scores.get(
@@ -153,14 +218,17 @@ def evaluate_model(model_path, benchmark_csv, output_csv, gpu_memory_utilization
                 ) + float(score)
 
         if query_image and dish_image_matrix is not None:
-            query_image_embed = get_image_embedding(llm, query_image)
-            image_similarities = cosine_similarity(
-                query_image_embed, dish_image_matrix
-            )[0]
-            for dish_name, score in zip(dish_names, image_similarities):
-                combined_scores[dish_name] = combined_scores.get(
-                    dish_name, 0.0
-                ) + float(score)
+            query_image_embed = get_image_embedding(
+                model, processor, query_image, device
+            )
+            if query_image_embed is not None:
+                image_similarities = cosine_similarity(
+                    query_image_embed, dish_image_matrix
+                )[0]
+                for dish_name, score in zip(dish_names, image_similarities):
+                    combined_scores[dish_name] = combined_scores.get(
+                        dish_name, 0.0
+                    ) + float(score)
 
         # Sort by combined score
         sorted_dishes = sorted(
@@ -214,5 +282,5 @@ def evaluate_model(model_path, benchmark_csv, output_csv, gpu_memory_utilization
 
 if __name__ == "__main__":
     results = evaluate_model(
-        MODEL_PATH, BENCHMARK_CSV, OUTPUT_CSV, GPU_MEMORY_UTILIZATION
+        MODEL_PATH, BENCHMARK_CSV, OUTPUT_CSV, None
     )
